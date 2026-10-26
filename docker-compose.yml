@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  colonel-bot:
+    build: .
+    restart: always
+    volumes:
+      - ./colonel_party.db:/app/colonel_party.db
+    env_file:
+      - .env
