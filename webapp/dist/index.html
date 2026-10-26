@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>داستان یک میهمانی — باغ سرهنگ</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('./fonts/Vazirmatn-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('./fonts/Vazirmatn-Bold.ttf') format('truetype');
+      font-weight: bold;
+      font-style: normal;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      font-family: 'Vazirmatn', -apple-system, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050406;
+      color: #eaeaea;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Top HUD */
+    #top-hud {
+      position: absolute;
+      top: env(safe-area-inset-top, 12px);
+      left: 12px;
+      right: 12px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(18, 14, 20, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212, 175, 80, 0.25);
+      border-radius: 14px;
+      padding: 8px 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      transition: all 0.3s ease;
+    }
+
+    .hud-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #d4af50;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-guest {
+      font-size: 11px;
+      color: #b0a8b5;
+    }
+
+    .hud-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: rgba(30, 24, 34, 0.85);
+      border: 1px solid rgba(212, 175, 80, 0.4);
+      color: #f0e6d2;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .hud-btn:active {
+      transform: scale(0.95);
+      background: #d4af50;
+      color: #111;
+    }
+
+    /* Bottom Navigation Bar */
+    #bottom-nav {
+      position: absolute;
+      bottom: env(safe-area-inset-bottom, 14px);
+      left: 12px;
+      right: 12px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-around;
+      background: rgba(18, 14, 20, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(212, 175, 80, 0.3);
+      border-radius: 20px;
+      padding: 6px 4px;
+      box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.7);
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 2px;
+      border-radius: 14px;
+      color: #8c8294;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .nav-item .icon {
+      font-size: 18px;
+      margin-bottom: 2px;
+      transition: transform 0.2s;
+    }
+
+    .nav-item.active {
+      color: #d4af50;
+      background: rgba(212, 175, 80, 0.12);
+    }
+    .nav-item.active .icon {
+      transform: translateY(-2px) scale(1.1);
+    }
+
+    /* Modals & Overlays */
+    .hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 24px;
+      text-align: center;
+    }
+    .hud-overlay.visible {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #141017;
+      border: 1px solid #d4af50;
+      border-radius: 18px;
+      padding: 20px;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.9), 0 0 20px rgba(212, 175, 80, 0.2);
+    }
+
+    .modal-title {
+      font-size: 17px;
+      color: #d4af50;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+
+    .modal-body {
+      font-size: 13px;
+      color: #d0c8d8;
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #201a24;
+      border: 1px solid rgba(212, 175, 80, 0.4);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 14px;
+      text-align: center;
+      outline: none;
+      margin-bottom: 14px;
+    }
+    .modal-input:focus {
+      border-color: #d4af50;
+      box-shadow: 0 0 10px rgba(212, 175, 80, 0.4);
+    }
+
+    .modal-btn {
+      width: 100%;
+      padding: 11px;
+      background: linear-gradient(135deg, #d4af50, #967420);
+      color: #111;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .modal-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Red Lantern Mode Overwrite */
+    body.red-mode {
+      background-color: #120002 !important;
+    }
+    body.red-mode #top-hud,
+    body.red-mode #bottom-nav {
+      border-color: rgba(255, 30, 30, 0.5);
+      background: rgba(25, 0, 3, 0.9);
+    }
+    body.red-mode .hud-title,
+    body.red-mode .nav-item.active {
+      color: #ff3344 !important;
+    }
+    body.red-mode .nav-item.active {
+      background: rgba(255, 50, 50, 0.18);
+    }
+    body.red-mode .hud-btn {
+      border-color: #ff3344;
+      color: #ffaaaa;
+    }
+
+    /* Loading Spinner */
+    #loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      background: #060408;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      transition: opacity 0.5s;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(212, 175, 80, 0.2);
+      border-top-color: #d4af50;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index-pBJAH2CJ.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/three-Dlg_Raqm.js">
+</head>
+<body>
+  <div id="loader">
+    <div class="spinner"></div>
+    <div style="color: #d4af50; font-size: 14px; font-weight: bold;">در حال گشودن دروازه‌های عمارت...</div>
+  </div>
+
+  <div id="top-hud">
+    <div>
+      <div class="hud-title"><span>🏰</span> <span>باغ سرهنگ</span></div>
+      <div class="hud-guest" id="guest-name-display">در حال ارتباط با بات...</div>
+    </div>
+    <div class="hud-controls">
+      <button class="hud-btn" id="btn-sound">🔊 صدا</button>
+      <button class="hud-btn" id="btn-gyro">📱 سنسور</button>
+    </div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <div id="bottom-nav">
+    <div class="nav-item active" data-scene="card">
+      <div class="icon">🎴</div>
+      <div>کارت من</div>
+    </div>
+    <div class="nav-item" data-scene="tape">
+      <div class="icon">🎙</div>
+      <div>نوار کاست</div>
+    </div>
+    <div class="nav-item" data-scene="midnight">
+      <div class="icon">🔴</div>
+      <div>فانوس سرخ</div>
+    </div>
+    <div class="nav-item" data-scene="radar">
+      <div class="icon">🔦</div>
+      <div>معما و تیم</div>
+    </div>
+    <div class="nav-item" data-scene="lounge">
+      <div class="icon">🛋</div>
+      <div>سالن امن</div>
+    </div>
+  </div>
+
+  <!-- Solve Riddle Modal -->
+  <div class="hud-overlay" id="modal-solve">
+    <div class="modal-card">
+      <div class="modal-title">🧩 ثبت رمز معما در باغ</div>
+      <div class="modal-body" id="solve-modal-desc">
+        پاسخ کشف‌شده از پاکت طلسم روی درختان را وارد کنید:
+      </div>
+      <input type="text" class="modal-input" id="riddle-input" placeholder="مثال: خون یا ۱۳۵۶">
+      <button class="modal-btn" id="btn-submit-riddle">ارسال رمز معما</button>
+      <button class="hud-btn" style="width: 100%; margin-top: 8px; justify-content: center;" id="btn-close-solve">بستن</button>
+    </div>
+  </div>
+
+</body>
+</html>

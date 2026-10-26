@@ -24,3 +24,6 @@ else:
 
 CARD_WIDTH: int = 1080
 CARD_HEIGHT: int = 1350
+
+WEBAPP_PORT: int = int(os.getenv("WEBAPP_PORT", "8080"))
+WEBAPP_URL: str = os.getenv("WEBAPP_URL", "").strip()

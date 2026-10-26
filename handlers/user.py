@@ -6,7 +6,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery, BufferedInputFile,
-    InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+    InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, WebAppInfo
 )
 
 import config
@@ -50,16 +50,23 @@ async def send_existing_card(message_or_callback, guest: dict):
     card_buf = generate_invitation_card(name, role, serial, soul_pin=pin)
     photo_file = BufferedInputFile(card_buf.getvalue(), filename=f"invitation_soul_{serial}.png")
 
-    card_inline_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🔄 تغییر نقش (مهلت: تا ۱۸:۰۰ روز ۲۹ اکتبر)",
-                    callback_data="req_change_role"
-                )
-            ]
+    card_buttons = [
+        [
+            InlineKeyboardButton(
+                text="🔄 تغییر نقش (مهلت: تا ۱۸:۰۰ روز ۲۹ اکتبر)",
+                callback_data="req_change_role"
+            )
         ]
-    )
+    ]
+    if config.WEBAPP_URL:
+        card_buttons.append([
+            InlineKeyboardButton(
+                text="🎴 چرخاندن کارت دعوت ۳ بعدی (مینی‌اپ)",
+                web_app=WebAppInfo(url=config.WEBAPP_URL)
+            )
+        ])
+
+    card_inline_kb = InlineKeyboardMarkup(inline_keyboard=card_buttons)
     reply_kb = keyboards.main_menu_reply_kb(role=role, is_hunter=is_hunter)
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
     await target.answer_photo(photo=photo_file, caption=caption, reply_markup=card_inline_kb)

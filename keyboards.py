@@ -1,21 +1,41 @@
 from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton
+    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 )
+import config
 import texts
 
 def enter_dossier_kb() -> InlineKeyboardMarkup:
     """Button to enter the mansion party."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.ENTER_DOSSIER_BTN,
-                    callback_data="enter_dossier"
-                )
-            ]
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=texts.ENTER_DOSSIER_BTN,
+                callback_data="enter_dossier"
+            )
         ]
-    )
+    ]
+    if config.WEBAPP_URL:
+        rows.append([
+            InlineKeyboardButton(
+                text="🏰 ورود به عمارت ۳ بعدی باغ سرهنگ",
+                web_app=WebAppInfo(url=config.WEBAPP_URL)
+            )
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def open_3d_mansion_kb(webapp_url: str = "") -> InlineKeyboardMarkup:
+    """Inline button to launch the 3D Three.js Telegram Mini App."""
+    url = webapp_url or config.WEBAPP_URL
+    rows = []
+    if url:
+        rows.append([
+            InlineKeyboardButton(
+                text="🏰 ورود به عمارت ۳ بعدی باغ سرهنگ",
+                web_app=WebAppInfo(url=url)
+            )
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def confirm_name_kb(guest_name: str) -> InlineKeyboardMarkup:
     """Confirmation keyboard for matched name."""
@@ -138,6 +158,11 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
     """
     kb_rows = []
 
+    if config.WEBAPP_URL:
+        kb_rows.append([
+            KeyboardButton(text="🏰 عمارت ۳ بعدی باغ سرهنگ", web_app=WebAppInfo(url=config.WEBAPP_URL))
+        ])
+
     if role == "role_player":
         kb_rows.append([
             KeyboardButton(text="🔴 فانوس سرخ دیجیتال"),
@@ -180,30 +205,37 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
 
 def midnight_action_kb() -> InlineKeyboardMarkup:
     """Action buttons for players during the final midnight game."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🔴 دریافت تمام‌صفحه فانوس سرخ",
-                    callback_data="dl_lantern"
-                ),
-                InlineKeyboardButton(
-                    text="🔦 وضعیت تیم و معماها",
-                    callback_data="chk_team"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🧩 راهنمای ثبت پاسخ (/solve)",
-                    callback_data="help_solve"
-                ),
-                InlineKeyboardButton(
-                    text="📜 مرور کل قوانین بازی",
-                    callback_data="rules_midnight"
-                )
-            ]
+    rows = []
+    if config.WEBAPP_URL:
+        rows.append([
+            InlineKeyboardButton(
+                text="🏮 فانوس سرخ ۳ بعدی و پاکت‌ها (مینی‌اپ)",
+                web_app=WebAppInfo(url=config.WEBAPP_URL)
+            )
+        ])
+    rows.extend([
+        [
+            InlineKeyboardButton(
+                text="🔴 دریافت تمام‌صفحه فانوس سرخ",
+                callback_data="dl_lantern"
+            ),
+            InlineKeyboardButton(
+                text="🔦 وضعیت تیم و معماها",
+                callback_data="chk_team"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🧩 راهنمای ثبت پاسخ (/solve)",
+                callback_data="help_solve"
+            ),
+            InlineKeyboardButton(
+                text="📜 مرور کل قوانین بازی",
+                callback_data="rules_midnight"
+            )
         ]
-    )
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = False) -> InlineKeyboardMarkup:
     """Inline keyboard for social mission in Phase 2."""

@@ -8,3 +8,5 @@ venv/
 .venv/
 test_card_*.png
 sample.png
+node_modules/
+webapp/node_modules/
