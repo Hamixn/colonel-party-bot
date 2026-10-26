@@ -503,11 +503,16 @@ async def cb_help_solve(callback: CallbackQuery):
     )
     await callback.message.answer(msg, reply_markup=keyboards.midnight_action_kb())
 
+@router.message(Command("rules"))
 @router.callback_query(F.data == "rules_midnight")
-async def cb_rules_midnight(callback: CallbackQuery):
+async def cb_rules_midnight(event: Message | CallbackQuery):
     """Re-sends the full midnight game rules."""
-    await callback.answer("قوانین بازی")
-    await callback.message.answer(texts.MIDNIGHT_RULES_BRIEFING, reply_markup=keyboards.midnight_action_kb())
+    if isinstance(event, CallbackQuery):
+        await event.answer("قوانین بازی")
+        target = event.message
+    else:
+        target = event
+    await target.answer(texts.MIDNIGHT_RULES_BRIEFING, reply_markup=keyboards.midnight_action_kb())
 
 @router.message(Command("carpool"))
 @router.message(F.text == "🚗 کاروان صدرا")
@@ -560,24 +565,3 @@ async def cmd_graveyard(message: Message):
         f"*(ساعت ۲۴:۰۰ سرنوشت نهایی در تاریکی حیاط تعیین خواهد شد...)*"
     )
     await message.answer(msg)
-
-@router.message(Command("app"))
-@router.message(Command("webapp"))
-@router.message(Command("mansion"))
-@router.message(Command("3d"))
-@router.message(F.text == "🏰 عمارت ۳ بعدی باغ سرهنگ")
-async def cmd_open_webapp(message: Message):
-    """Provides direct 1-tap entry into the 3D Three.js Telegram Mini App."""
-    if not config.WEBAPP_URL:
-        await message.answer(
-            "🏰 **عمارت ۳ بعدی باغ سرهنگ (Three.js Mini App)**\n\n"
-            "مینی‌اپ به صورت محلی در حال اجراست. برای اتصال تلگرام، متغیر WEBAPP_URL را با دامنه امن (HTTPS) در فایل .env تنظیم فرمایید.\n"
-            f"🔗 آدرس محلی سرور: http://localhost:{config.WEBAPP_PORT}"
-        )
-        return
-
-    await message.answer(
-        "🏰 **ورود به عمارت ۳ بعدی باغ سرهنگ**\n\n"
-        "کارت دعوت سه‌بعدی، نوار کاست صوتی ۱۳۵۶ با رقص عقربه‌های دستگاه ناگرا، فانوس سرخ شتاب‌سنج‌دار و سالن بلوندها را در فضای سه‌بعدی تجربه کنید:",
-        reply_markup=keyboards.open_3d_mansion_kb()
-    )

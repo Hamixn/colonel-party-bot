@@ -1,41 +1,21 @@
 from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+    ReplyKeyboardMarkup, KeyboardButton
 )
-import config
 import texts
 
 def enter_dossier_kb() -> InlineKeyboardMarkup:
     """Button to enter the mansion party."""
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=texts.ENTER_DOSSIER_BTN,
-                callback_data="enter_dossier"
-            )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.ENTER_DOSSIER_BTN,
+                    callback_data="enter_dossier"
+                )
+            ]
         ]
-    ]
-    if config.WEBAPP_URL:
-        rows.append([
-            InlineKeyboardButton(
-                text="🏰 ورود به عمارت ۳ بعدی باغ سرهنگ",
-                web_app=WebAppInfo(url=config.WEBAPP_URL)
-            )
-        ])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-def open_3d_mansion_kb(webapp_url: str = "") -> InlineKeyboardMarkup:
-    """Inline button to launch the 3D Three.js Telegram Mini App."""
-    url = webapp_url or config.WEBAPP_URL
-    rows = []
-    if url:
-        rows.append([
-            InlineKeyboardButton(
-                text="🏰 ورود به عمارت ۳ بعدی باغ سرهنگ",
-                web_app=WebAppInfo(url=url)
-            )
-        ])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    )
 
 def confirm_name_kb(guest_name: str) -> InlineKeyboardMarkup:
     """Confirmation keyboard for matched name."""
@@ -107,13 +87,11 @@ def skip_car_passengers_kb() -> InlineKeyboardMarkup:
 
 def story_navigator_kb(act: int = 1) -> InlineKeyboardMarkup:
     """Interactive 4-act screenplay viewer."""
-    # Top tabs
     tabs = []
     for i in range(1, 5):
         label = f"🔹 پرده {i} 🔹" if i == act else f"پرده {i}"
         tabs.append(InlineKeyboardButton(text=label, callback_data=f"show_act_{i}"))
 
-    # Nav row
     nav_row = []
     if act > 1:
         nav_row.append(InlineKeyboardButton(text="➡️ پرده قبلی", callback_data=f"show_act_{act - 1}"))
@@ -130,7 +108,6 @@ def story_navigator_kb(act: int = 1) -> InlineKeyboardMarkup:
             )
         ]
     ]
-    # Filter empty rows
     return InlineKeyboardMarkup(inline_keyboard=[r for r in keyboard if r])
 
 def role_selection_detailed_kb() -> InlineKeyboardMarkup:
@@ -157,11 +134,6 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
     Persistent bottom menu providing instant 1-tap access to all party features.
     """
     kb_rows = []
-
-    if config.WEBAPP_URL:
-        kb_rows.append([
-            KeyboardButton(text="🏰 عمارت ۳ بعدی باغ سرهنگ", web_app=WebAppInfo(url=config.WEBAPP_URL))
-        ])
 
     if role == "role_player":
         kb_rows.append([
@@ -205,37 +177,30 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
 
 def midnight_action_kb() -> InlineKeyboardMarkup:
     """Action buttons for players during the final midnight game."""
-    rows = []
-    if config.WEBAPP_URL:
-        rows.append([
-            InlineKeyboardButton(
-                text="🏮 فانوس سرخ ۳ بعدی و پاکت‌ها (مینی‌اپ)",
-                web_app=WebAppInfo(url=config.WEBAPP_URL)
-            )
-        ])
-    rows.extend([
-        [
-            InlineKeyboardButton(
-                text="🔴 دریافت تمام‌صفحه فانوس سرخ",
-                callback_data="dl_lantern"
-            ),
-            InlineKeyboardButton(
-                text="🔦 وضعیت تیم و معماها",
-                callback_data="chk_team"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="🧩 راهنمای ثبت پاسخ (/solve)",
-                callback_data="help_solve"
-            ),
-            InlineKeyboardButton(
-                text="📜 مرور کل قوانین بازی",
-                callback_data="rules_midnight"
-            )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔴 دریافت تمام‌صفحه فانوس سرخ",
+                    callback_data="dl_lantern"
+                ),
+                InlineKeyboardButton(
+                    text="🔦 وضعیت تیم و معماها",
+                    callback_data="chk_team"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🧩 راهنمای ثبت پاسخ (/solve)",
+                    callback_data="help_solve"
+                ),
+                InlineKeyboardButton(
+                    text="📜 مرور کل قوانین بازی",
+                    callback_data="rules_midnight"
+                )
+            ]
         ]
-    ])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    )
 
 def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = False) -> InlineKeyboardMarkup:
     """Inline keyboard for social mission in Phase 2."""
