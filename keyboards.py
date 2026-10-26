@@ -140,6 +140,10 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
 
     if role == "role_player":
         kb_rows.append([
+            KeyboardButton(text="🔴 فانوس سرخ دیجیتال"),
+            KeyboardButton(text="🔦 تیم من در حیاط")
+        ])
+        kb_rows.append([
             KeyboardButton(text="🎴 کارت دعوت من"),
             KeyboardButton(text="📜 طومار و ماموریت مخفی")
         ])
@@ -149,17 +153,16 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
             ])
         kb_rows.append([
             KeyboardButton(text="🚗 کاروان صدرا"),
-            KeyboardButton(text="🔦 تیم من در حیاط")
+            KeyboardButton(text="🎙 نوار کاست سرهنگ")
         ])
         kb_rows.append([
-            KeyboardButton(text="🎙 نوار کاست سرهنگ"),
             KeyboardButton(text="⚰️ وضعیت زنده عمارت")
         ])
     else:
         # Blonde
         kb_rows.append([
             KeyboardButton(text="🎴 کارت دعوت من"),
-            KeyboardButton(text="💡 روشن کردن نورافکن باغ")
+            KeyboardButton(text="💡 روشن کردن نور حیات باغ")
         ])
         kb_rows.append([
             KeyboardButton(text="🚗 کاروان صدرا"),
@@ -173,6 +176,33 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
         keyboard=kb_rows,
         resize_keyboard=True,
         is_persistent=True
+    )
+
+def midnight_action_kb() -> InlineKeyboardMarkup:
+    """Action buttons for players during the final midnight game."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔴 دریافت تمام‌صفحه فانوس سرخ",
+                    callback_data="dl_lantern"
+                ),
+                InlineKeyboardButton(
+                    text="🔦 وضعیت تیم و معماها",
+                    callback_data="chk_team"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🧩 راهنمای ثبت پاسخ (/solve)",
+                    callback_data="help_solve"
+                ),
+                InlineKeyboardButton(
+                    text="📜 مرور کل قوانین بازی",
+                    callback_data="rules_midnight"
+                )
+            ]
+        ]
     )
 
 def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = False) -> InlineKeyboardMarkup:

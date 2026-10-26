@@ -252,7 +252,15 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             if not tid:
                 continue
 
-            caption = (
+            lantern_caption = (
+                "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
+                "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز نگه دارید.\n\n"
+                "⚠️ **تنها نوری که می‌توانید استفاده کنید و سرهنگ به آن حساس نیست همین است!**\n"
+                "سرهنگ به نور سرخ تاریک‌خانه‌اش الفت داشته و به آن کاملاً نابیناست. "
+                "روشن کردن هرگونه چراغ‌قوه سفید یا صفحه عادی گوشی = حمله و شکار فوری توسط روح سرهنگ!"
+            )
+
+            rules_msg = (
                 f"{texts.MIDNIGHT_RULES_BRIEFING}\n\n"
                 f"🏷 **تیم شما:** {team_name}\n"
                 f"👥 **هم‌تیمی‌های شما:** {'، '.join(all_member_names)}\n\n"
@@ -263,9 +271,8 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             try:
                 if red_lantern_path.exists():
                     photo_file = FSInputFile(str(red_lantern_path), filename="red_lantern.jpg")
-                    await bot.send_photo(chat_id=tid, photo=photo_file, caption=caption)
-                else:
-                    await bot.send_message(chat_id=tid, text=caption)
+                    await bot.send_photo(chat_id=tid, photo=photo_file, caption=lantern_caption)
+                await bot.send_message(chat_id=tid, text=rules_msg, reply_markup=keyboards.midnight_action_kb())
             except Exception as e:
                 print(f"Error briefing {m['full_name']}: {e}")
 
@@ -286,7 +293,7 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
                     "🍿 **[ساعت ۰۰:۳۰ — زنگ خاموشی عمارت و آغاز بازی حیاط نواخته شد!]**\n\n"
                     "چراغ‌های حیاط خاموش شد و بازیکنان با فانوس سرخ وارد تاریکی باغ شدند!\n"
                     "پخش فیلم سینمایی ترسناک در سالن گرم با نوشیدنی و پاپ‌کورن آغاز گردید.\n\n"
-                    "💡 یادآوری: در صورت بحرانی شدن اوضاع حیاط، می‌توانید با دکمه‌ی «💡 روشن کردن نورافکن باغ» موقتاً ارواح را کور کنید."
+                    "💡 یادآوری: در صورت بحرانی شدن اوضاع حیاط، می‌توانید با دکمه‌ی «💡 روشن کردن نور حیات باغ» موقتاً ارواح را کور کنید."
                 )
             )
         except Exception:

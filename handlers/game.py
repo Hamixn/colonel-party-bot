@@ -15,6 +15,7 @@ import card_generator
 router = Router()
 
 AUDIO_TAPE_PATH = Path("assets/audio/colonel_tape.wav")
+RED_LANTERN_PATH = Path("assets/images/red_lantern.jpg")
 
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
 MISSION_UNLOCK_TIME = datetime(2026, 10, 29, 18, 0, 0, tzinfo=TEHRAN_TZ)
@@ -385,9 +386,9 @@ async def cmd_team(message: Message):
     await message.answer(msg)
 
 @router.message(Command("rescue"))
-@router.message(F.text == "💡 روشن کردن نورافکن باغ")
+@router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ"]))
 async def cmd_rescue(message: Message, bot: Bot):
-    """Blondes can trigger an emergency spotlight to temporarily blind the ghost."""
+    """Blondes can trigger emergency courtyard lights to temporarily blind the ghost."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start در سیستم ثبت‌نام کنید.")
@@ -395,21 +396,118 @@ async def cmd_rescue(message: Message, bot: Bot):
 
     rescue_count = int(await database.get_game_state("rescue_count", "0"))
     if rescue_count >= 3:
-        await message.answer("⚠️ انرژی ژنراتور باغ تمام شده است! حداکثر ۳ بار امکان روشن کردن پروژکتور وجود داشت.")
+        await message.answer("⚠️ انرژی ژنراتور باغ تمام شده است! حداکثر ۳ بار امکان روشن کردن نور حیات باغ وجود داشت.")
         return
 
     await database.set_game_state("rescue_count", str(rescue_count + 1))
-    await message.answer(f"💡 نورافکن باغ به مدت ۱۰ ثانیه روشن شد! ({rescue_count + 1}/3)")
+    await message.answer(f"💡 نور حیات باغ به مدت ده ثانیه روشن میشود. ({rescue_count + 1}/3)")
 
     players = await database.get_all_telegram_ids(role_filter="role_player")
     for pid in players:
         try:
             await bot.send_message(
                 chat_id=pid,
-                text="💡 **[امداد از سالن — نورافکن باغ روشن شد!]**\n\nبلوندهای بی‌گناه از پشت پنجره نورافکن باغ را روشن کردند! روح سرهنگ موقتاً کور شد؛ الان زمان فرار و پیدا کردن پاکت طلسم است!"
+                text="💡 **[امداد از سالن — نور حیات باغ روشن شد!]**\n\nبلوندهای بی‌گناه از پشت پنجره نور حیات باغ را روشن کردند! روح سرهنگ موقتاً کور شد؛ الان زمان فرار و پیدا کردن پاکت طلسم است!"
             )
         except Exception:
             pass
+
+@router.message(Command("lantern"))
+@router.message(Command("red_lantern"))
+@router.message(F.text == "🔴 فانوس سرخ دیجیتال")
+async def cmd_red_lantern(message: Message):
+    """Sends the Red Lantern full-screen phone image + survival instructions."""
+    caption = (
+        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
+        "📱 **دستورالعمل مهم:** این تصویر را به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز کنید و نور صفحه را بالا ببرید.\n\n"
+        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
+        "سرهنگ در پاییز ۱۳۵۶ در تاریک‌خانه عکاسی‌اش به نور سرخ الفت داشته و به آن کاملاً نابیناست؛ "
+        "اما هرگونه نور سفید، چراغ‌قوه یا صفحه عادی گوشی فوراً سرهنگ را به سمت موقعیت شما کشانده و باعث شکار تیمتان می‌شود!\n\n"
+        "💡 در طول بازی نیمه‌شب در حیاط، این تصویر را باز نگه دارید و بدون هیچ صدای اضافه‌ای حرکت کنید."
+    )
+    kb = keyboards.midnight_action_kb()
+    if RED_LANTERN_PATH.exists():
+        photo_file = FSInputFile(str(RED_LANTERN_PATH), filename="red_lantern.jpg")
+        await message.answer_photo(photo=photo_file, caption=caption, reply_markup=kb)
+    else:
+        await message.answer(caption, reply_markup=kb)
+
+@router.callback_query(F.data == "dl_lantern")
+async def cb_dl_lantern(callback: CallbackQuery):
+    """Re-sends the red lantern photo for full-screen display."""
+    await callback.answer("فانوس سرخ دیجیتال")
+    caption = (
+        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
+        "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی گوشی باز نگه دارید.\n\n"
+        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
+        "سرهنگ به نور سرخ تاریک‌خانه الفت داشته و به آن کاملاً نابیناست؛ "
+        "روشن کردن هرگونه چراغ سفید یا صفحه عادی گوشی = شکار فوری توسط روح سرهنگ!"
+    )
+    kb = keyboards.midnight_action_kb()
+    if RED_LANTERN_PATH.exists():
+        photo_file = FSInputFile(str(RED_LANTERN_PATH), filename="red_lantern.jpg")
+        await callback.message.answer_photo(photo=photo_file, caption=caption, reply_markup=kb)
+    else:
+        await callback.message.answer(caption, reply_markup=kb)
+
+@router.callback_query(F.data == "chk_team")
+async def cb_chk_team(callback: CallbackQuery):
+    """Shows team status and riddle progression from inline button."""
+    await callback.answer()
+    guest = await database.get_guest_by_telegram_id(callback.from_user.id)
+    if not guest:
+        await callback.message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
+        return
+
+    team_num = guest.get("team_number")
+    if not team_num:
+        await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۰۰:۳۰ اعلام خواهد شد.")
+        return
+
+    teammates = await database.get_team_members(team_num)
+    names = [m["full_name"] for m in teammates]
+    team_name = guest.get("team_name") or f"تیم {team_num}"
+    r1_solved = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+
+    traitor_text = ""
+    if guest.get("is_traitor") == 1:
+        traitor_text = (
+            "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
+            "هدف تو این است که تیمت در طبقه دوم کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید!"
+        )
+
+    msg = (
+        f"🔦 **اطلاعات تیم شما در بازی نیمه‌شب حیاط:**\n\n"
+        f"🏷 **نام تیم:** {team_name}\n"
+        f"👥 **هم‌تیمی‌های شما:** {'، '.join(names)}\n\n"
+        f"📊 **وضعیت معماها:**\n"
+        f"• پاکت اول: {'✅ حل شد' if r1_solved else '⏳ در حال جستجو روی درختان'}\n"
+        f"• پاکت دوم: {'✅ حل شد' if r2_solved else '⏳ در حال جستجو روی درختان'}\n\n"
+        f"💡 پاسخ هر پاکت را با دستور `/solve <پاسخ>` ارسال کنید."
+        f"{traitor_text}"
+    )
+    await callback.message.answer(msg, reply_markup=keyboards.midnight_action_kb())
+
+@router.callback_query(F.data == "help_solve")
+async def cb_help_solve(callback: CallbackQuery):
+    """Shows how to submit riddle solutions."""
+    await callback.answer("راهنمای حل معما")
+    msg = (
+        "🧩 **راهنمای ثبت پاسخ معماها در حیاط:**\n\n"
+        "۱. روی درختان باغ به دنبال پاکت‌های چسبانده‌شده‌ی تیم خود بگردید.\n"
+        "۲. پس از خواندن شعر معما و مشورت با هم‌تیمی‌ها، جواب را با این فرمت بنویسید:\n"
+        "`/solve <پاسخ شما>`\n\n"
+        "📌 **مثال:** `/solve خون` یا `/solve ۱۳۵۶`\n\n"
+        "⚠️ **هشدار مرگبار:** اگر جواب اشتباه ارسال کنید، صدای شکستن شاخه‌ها پخش می‌شود و سرهنگ بلافاصله به سمت تیم شما هجوم می‌آورد!"
+    )
+    await callback.message.answer(msg, reply_markup=keyboards.midnight_action_kb())
+
+@router.callback_query(F.data == "rules_midnight")
+async def cb_rules_midnight(callback: CallbackQuery):
+    """Re-sends the full midnight game rules."""
+    await callback.answer("قوانین بازی")
+    await callback.message.answer(texts.MIDNIGHT_RULES_BRIEFING, reply_markup=keyboards.midnight_action_kb())
 
 @router.message(Command("carpool"))
 @router.message(F.text == "🚗 کاروان صدرا")
