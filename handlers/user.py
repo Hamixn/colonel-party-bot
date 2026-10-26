@@ -87,6 +87,8 @@ async def send_existing_card(message_or_callback, guest: dict):
         )
         await target.answer(car_summary)
 
+VOICE_WELCOME_FILE_ID = "AwACAgEAAxkDAAOSat7mUg77OLlg65oZDyAPaOsNmakAAkAKAALxQ_hGOutdvucNrEw9BA"
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Entry point for /start with dramatic voice narration."""
@@ -101,6 +103,17 @@ async def cmd_start(message: Message, state: FSMContext):
 
     await state.clear()
     await state.set_state(RegistrationStates.waiting_for_name)
+
+    if VOICE_WELCOME_FILE_ID:
+        try:
+            await message.answer_voice(
+                voice=VOICE_WELCOME_FILE_ID,
+                caption=texts.START_WELCOME_TEXT,
+                reply_markup=keyboards.enter_dossier_kb()
+            )
+            return
+        except Exception as e:
+            print(f"Fallback from cached voice ID due to: {e}")
 
     voice_path = Path("assets/audio/welcome_narration.mp3")
     if voice_path.exists():

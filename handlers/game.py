@@ -17,6 +17,9 @@ router = Router()
 AUDIO_TAPE_PATH = Path("assets/audio/colonel_tape.wav")
 RED_LANTERN_PATH = Path("assets/images/red_lantern.jpg")
 
+TAPE_VOICE_FILE_ID = "AwACAgEAAxkDAAOUat7mnLOvrLtH8g2qn5xA5Vga2iEAAkEKAALxQ_hGBnT2Ao2vHjg9BA"
+LANTERN_PHOTO_FILE_ID = "AgACAgEAAxkDAAOVat7mnZbQOE2oLNWQTFy0mWEbNVIAAhANaxvxQ_hGMirKbWdvIo4BAAMCAAN5AAM9BA"
+
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
 MISSION_UNLOCK_TIME = datetime(2026, 10, 29, 18, 0, 0, tzinfo=TEHRAN_TZ)
 
@@ -40,7 +43,15 @@ async def can_change_role() -> bool:
 @router.message(F.text == "🎙 نوار کاست سرهنگ")
 async def cmd_tape(message: Message):
     """Eerie cassette tape transcript & real audio soundscape from 1356."""
-    if AUDIO_TAPE_PATH.exists():
+    if TAPE_VOICE_FILE_ID:
+        try:
+            await message.answer_voice(
+                voice=TAPE_VOICE_FILE_ID,
+                caption="🎙 نوار کاست صوتی شماره ۷ سرهنگ — آبان ۱۳۵۶"
+            )
+        except Exception:
+            pass
+    elif AUDIO_TAPE_PATH.exists():
         try:
             audio_file = FSInputFile(str(AUDIO_TAPE_PATH), filename="colonel_tape_1356.wav")
             await message.answer_voice(
@@ -426,6 +437,12 @@ async def cmd_red_lantern(message: Message):
         "💡 در طول بازی نیمه‌شب در حیاط، این تصویر را باز نگه دارید و بدون هیچ صدای اضافه‌ای حرکت کنید."
     )
     kb = keyboards.midnight_action_kb()
+    if LANTERN_PHOTO_FILE_ID:
+        try:
+            await message.answer_photo(photo=LANTERN_PHOTO_FILE_ID, caption=caption, reply_markup=kb)
+            return
+        except Exception:
+            pass
     if RED_LANTERN_PATH.exists():
         photo_file = FSInputFile(str(RED_LANTERN_PATH), filename="red_lantern.jpg")
         await message.answer_photo(photo=photo_file, caption=caption, reply_markup=kb)
@@ -444,6 +461,12 @@ async def cb_dl_lantern(callback: CallbackQuery):
         "روشن کردن هرگونه چراغ سفید یا صفحه عادی گوشی = شکار فوری توسط روح سرهنگ!"
     )
     kb = keyboards.midnight_action_kb()
+    if LANTERN_PHOTO_FILE_ID:
+        try:
+            await callback.message.answer_photo(photo=LANTERN_PHOTO_FILE_ID, caption=caption, reply_markup=kb)
+            return
+        except Exception:
+            pass
     if RED_LANTERN_PATH.exists():
         photo_file = FSInputFile(str(RED_LANTERN_PATH), filename="red_lantern.jpg")
         await callback.message.answer_photo(photo=photo_file, caption=caption, reply_markup=kb)
