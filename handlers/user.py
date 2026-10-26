@@ -87,7 +87,7 @@ async def send_existing_card(message_or_callback, guest: dict):
         )
         await target.answer(car_summary)
 
-VOICE_WELCOME_FILE_ID = "AwACAgEAAxkDAAOSat7mUg77OLlg65oZDyAPaOsNmakAAkAKAALxQ_hGOutdvucNrEw9BA"
+VOICE_WELCOME_FILE_ID = "AwACAgEAAxkDAAPCat86qxc8Gwx9HWw9UX6EzooUtFkAAnwIAALxQwABRxvHQRnRpZyxPQQ"
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -115,10 +115,13 @@ async def cmd_start(message: Message, state: FSMContext):
         except Exception as e:
             print(f"Fallback from cached voice ID due to: {e}")
 
-    voice_path = Path("assets/audio/welcome_narration.mp3")
+    voice_path = Path("assets/audio/welcome_narration.ogg")
+    if not voice_path.exists():
+        voice_path = Path("assets/audio/welcome_narration.mp3")
+
     if voice_path.exists():
         try:
-            voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.mp3")
+            voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.ogg")
             await message.answer_voice(
                 voice=voice_file,
                 caption=texts.START_WELCOME_TEXT,

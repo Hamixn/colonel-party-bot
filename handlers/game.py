@@ -14,10 +14,12 @@ import card_generator
 
 router = Router()
 
-AUDIO_TAPE_PATH = Path("assets/audio/colonel_tape.wav")
+AUDIO_TAPE_PATH = Path("assets/audio/colonel_tape.ogg")
+if not AUDIO_TAPE_PATH.exists():
+    AUDIO_TAPE_PATH = Path("assets/audio/colonel_tape.wav")
 RED_LANTERN_PATH = Path("assets/images/red_lantern.jpg")
 
-TAPE_VOICE_FILE_ID = "AwACAgEAAxkDAAOUat7mnLOvrLtH8g2qn5xA5Vga2iEAAkEKAALxQ_hGBnT2Ao2vHjg9BA"
+TAPE_VOICE_FILE_ID = "AwACAgEAAxkDAAPDat86rJlyDDgFkfZVQRQhnPOnQxoAAn0IAALxQwABR1JeOJYDRyIwPQQ"
 LANTERN_PHOTO_FILE_ID = "AgACAgEAAxkDAAOVat7mnZbQOE2oLNWQTFy0mWEbNVIAAhANaxvxQ_hGMirKbWdvIo4BAAMCAAN5AAM9BA"
 
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
