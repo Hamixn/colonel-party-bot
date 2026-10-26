@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>داستان یک میهمانی — باغ سرهنگ</title>
+  <title>پرونده محرمانه ۵۲/۷ — عمارت باغ سرهنگ (۱۳۵۶)</title>
   
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -22,6 +22,20 @@
       font-style: normal;
     }
 
+    :root {
+      --bg-desk: #0a0709;
+      --folder-kraft: #1f1719;
+      --folder-card: #2a2024;
+      --paper-cream: #efe7d6;
+      --paper-aged: #dfd3bd;
+      --ink-black: #141113;
+      --ink-red: #8f1d24;
+      --stamp-red: #a8202a;
+      --gold-accent: #cfa84e;
+      --cyan-blueprint: #1a3038;
+      --cyan-line: #4fa4b8;
+    }
+
     * {
       box-sizing: border-box;
       user-select: none;
@@ -29,310 +43,1311 @@
       margin: 0;
       padding: 0;
       font-family: 'Vazirmatn', -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #050406;
-      color: #eaeaea;
+      background-color: var(--bg-desk);
+      color: #e5ded6;
     }
 
-    #canvas-container {
+    /* Ambient Desk & Dust Canvas */
+    #desk-container {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      background: radial-gradient(circle at 50% 25%, #181116 0%, #080608 85%);
+      display: flex;
+      flex-direction: column;
       z-index: 1;
     }
 
-    /* Top HUD */
-    #top-hud {
+    /* Vignette & CRT Scanlines overlay */
+    .vignette-overlay {
       position: absolute;
-      top: env(safe-area-inset-top, 12px);
-      left: 12px;
-      right: 12px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.85) 100%);
+      z-index: 5;
+    }
+
+    /* Top Police File Header */
+    #file-header {
+      position: relative;
       z-index: 10;
+      padding: calc(env(safe-area-inset-top, 8px) + 8px) 14px 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(18, 14, 20, 0.75);
+      background: rgba(18, 12, 16, 0.92);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(212, 175, 80, 0.25);
-      border-radius: 14px;
-      padding: 8px 14px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-      transition: all 0.3s ease;
+      border-bottom: 2px solid rgba(143, 29, 36, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
     }
 
-    .hud-title {
+    .case-badge {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .case-title {
       font-size: 13px;
       font-weight: bold;
-      color: #d4af50;
+      color: var(--gold-accent);
+      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .hud-guest {
-      font-size: 11px;
-      color: #b0a8b5;
+    .case-sub {
+      font-size: 10px;
+      color: #9f919a;
+      letter-spacing: 0.2px;
     }
 
-    .hud-controls {
+    .header-actions {
       display: flex;
       gap: 8px;
     }
 
-    .hud-btn {
-      background: rgba(30, 24, 34, 0.85);
-      border: 1px solid rgba(212, 175, 80, 0.4);
+    .btn-badge {
+      background: rgba(42, 28, 36, 0.8);
+      border: 1px solid rgba(207, 168, 78, 0.4);
       color: #f0e6d2;
-      border-radius: 8px;
-      padding: 4px 10px;
-      font-size: 12px;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.2s;
-    }
-    .hud-btn:active {
-      transform: scale(0.95);
-      background: #d4af50;
-      color: #111;
+      transition: all 0.2s ease;
     }
 
-    /* Bottom Navigation Bar */
-    #bottom-nav {
+    .btn-badge:active {
+      transform: scale(0.95);
+      background: rgba(143, 29, 36, 0.5);
+    }
+
+    /* Main Dossier Folder */
+    #dossier-main {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px calc(env(safe-area-inset-bottom, 12px) + 68px);
+      overflow: hidden;
+      z-index: 6;
+    }
+
+    /* Manila Folder Paper Stack Tabs */
+    #folder-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: -2px;
+      z-index: 8;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding: 0 4px;
+    }
+    #folder-tabs::-webkit-scrollbar { display: none; }
+
+    .folder-tab {
+      background: #23191d;
+      border: 1px solid rgba(207, 168, 78, 0.25);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #9c8e96;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .folder-tab.active {
+      background: #2f2228;
+      color: #f7ede2;
+      border-color: rgba(207, 168, 78, 0.6);
+      border-top: 3px solid var(--stamp-red);
+      transform: translateY(-2px);
+      box-shadow: 0 -4px 10px rgba(0,0,0,0.4);
+    }
+
+    /* Folder Interior Envelope Body */
+    .folder-sheet {
+      flex: 1;
+      background: #281d23;
+      border: 1px solid rgba(207, 168, 78, 0.35);
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), inset 0 0 40px rgba(0,0,0,0.5);
+      position: relative;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      display: none;
+      animation: sheetFade 0.25s ease-out forwards;
+    }
+
+    .folder-sheet.active {
+      display: block;
+    }
+
+    @keyframes sheetFade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =========================================
+       SECTION 1: SUBJECT DOSSIER & INVITATION
+       ========================================= */
+    .police-paper {
+      background: var(--paper-cream);
+      color: var(--ink-black);
+      border-radius: 6px;
+      padding: 18px 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5), inset 0 0 30px rgba(160, 130, 90, 0.25);
+      position: relative;
+      border: 1px solid #c9bda5;
+      font-family: 'Vazirmatn', monospace;
+    }
+
+    /* Authentic Red Classified Stamp */
+    .classified-stamp {
       position: absolute;
-      bottom: env(safe-area-inset-bottom, 14px);
-      left: 12px;
-      right: 12px;
-      z-index: 10;
+      top: 14px;
+      left: 14px;
+      border: 3px double var(--stamp-red);
+      color: var(--stamp-red);
+      font-weight: bold;
+      font-size: 15px;
+      padding: 4px 10px;
+      transform: rotate(-12deg);
+      border-radius: 4px;
+      letter-spacing: 1px;
+      opacity: 0.85;
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+
+    .paper-header {
+      border-bottom: 2px dashed #9d8b76;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .paper-ministry {
+      font-size: 11px;
+      font-weight: bold;
+      color: #635242;
+      text-align: center;
+    }
+
+    .paper-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--ink-red);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .doc-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .doc-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dotted #b8a892;
+      padding-bottom: 4px;
+    }
+
+    .doc-label {
+      color: #5d4f40;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .doc-val {
+      font-weight: bold;
+      color: #141113;
+    }
+
+    .stamped-pin {
+      display: inline-block;
+      color: var(--stamp-red);
+      font-size: 18px;
+      letter-spacing: 2px;
+      border: 1px solid var(--stamp-red);
+      padding: 1px 8px;
+      border-radius: 4px;
+      background: rgba(168, 32, 42, 0.08);
+    }
+
+    .carpool-box {
+      margin-top: 14px;
+      background: #e3d5be;
+      border-left: 4px solid #73593f;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* Pinned Invitation Card interactive preview */
+    .card-preview-container {
+      margin-top: 20px;
+      background: #1a1216;
+      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid rgba(207, 168, 78, 0.3);
+      text-align: center;
+    }
+
+    .card-inspect-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+      height: 350px;
+      margin: 0 auto;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .card-flipper {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+
+    .card-flipper.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .card-side {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8);
+      border: 2px solid var(--gold-accent);
+    }
+
+    .card-front {
+      background: url('./images/card_bg.jpg') center/cover no-repeat;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      text-align: center;
+      background-color: #120b12;
+    }
+
+    .card-back {
+      background: radial-gradient(circle, #20131d 0%, #0c070c 100%);
+      transform: rotateY(180deg);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      border-color: #8f1d24;
+      text-align: center;
+      gap: 12px;
+    }
+
+    .card-hint {
+      font-size: 11px;
+      color: var(--gold-accent);
+      margin-top: 8px;
+    }
+
+    /* Narration Audio Button */
+    .btn-play-voice {
+      margin-top: 14px;
+      width: 100%;
+      background: linear-gradient(135deg, #70161b, #450c10);
+      border: 1px solid rgba(207, 168, 78, 0.5);
+      color: #fcefe1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      transition: all 0.2s ease;
+    }
+
+    .btn-play-voice:active {
+      transform: scale(0.97);
+    }
+
+    /* =========================================
+       SECTION 2: VINTAGE NAGRA CASSETTE DECK
+       ========================================= */
+    .tape-deck-chassis {
+      background: #141116;
+      border: 2px solid #3c323f;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 8px 25px rgba(0,0,0,0.8);
+      position: relative;
+    }
+
+    .deck-faceplate {
+      background: linear-gradient(180deg, #221c25 0%, #17131a 100%);
+      border: 1px solid #4a3e4e;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .deck-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #362c39;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .deck-brand {
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      color: #8c7b91;
+    }
+
+    /* Amber Backlit VU Meter */
+    .vu-meter-box {
+      background: #ffcc66;
+      border: 2px solid #2b221e;
+      border-radius: 6px;
+      width: 90px;
+      height: 48px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 0 12px rgba(255, 170, 50, 0.4);
+    }
+
+    .vu-dial {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      right: 6px;
+      height: 20px;
+      border-bottom: 1px solid rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: #3b2816;
+      font-weight: bold;
+    }
+
+    .vu-needle {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      width: 2px;
+      height: 42px;
+      background: #b0151f;
+      transform-origin: bottom center;
+      transform: rotate(-35deg);
+      transition: transform 0.08s ease-out;
+      box-shadow: 0 0 2px rgba(0,0,0,0.8);
+    }
+
+    /* Cassette Well & Spinning Reels */
+    .cassette-compartment {
+      background: #0d0a0f;
+      border: 2px inset #2a222c;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .cassette-body {
+      width: 100%;
+      max-width: 270px;
+      height: 120px;
+      background: #1e1922;
+      border-radius: 6px;
+      border: 2px solid #382e3d;
+      position: relative;
       display: flex;
       justify-content: space-around;
-      background: rgba(18, 14, 20, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(212, 175, 80, 0.3);
-      border-radius: 20px;
-      padding: 6px 4px;
-      box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.7);
+      align-items: center;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.7);
     }
 
-    .nav-item {
+    .tape-spool {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #110e14;
+      border: 3px solid #6b5c70;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .tape-teeth {
+      width: 14px;
+      height: 14px;
+      background: #9f8ba5;
+      clip-path: polygon(50% 0%, 80% 10%, 100% 35%, 100% 70%, 80% 90%, 50% 100%, 20% 90%, 0% 70%, 0% 35%, 20% 10%);
+    }
+
+    .spinning .tape-spool {
+      animation: spinReels 1.4s linear infinite;
+    }
+
+    @keyframes spinReels {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .cassette-label {
+      position: absolute;
+      top: 10px;
+      left: 15px;
+      right: 15px;
+      height: 36px;
+      background: #ece3cf;
+      border-radius: 4px;
+      border: 1px solid #73644f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #69171b;
+      letter-spacing: 0.5px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    /* Mechanical Tape Buttons */
+    .deck-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .deck-btn {
+      flex: 1;
+      padding: 10px 4px;
+      background: linear-gradient(180deg, #382e3c 0%, #221a25 100%);
+      border: 1px solid #5a4b60;
+      color: #e2d9e6;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+      transition: all 0.15s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .deck-btn:active, .deck-btn.pressed {
+      transform: translateY(3px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      background: #17111a;
+      border-color: var(--gold-accent);
+      color: var(--gold-accent);
+    }
+
+    /* Teleprompter transcript paper */
+    .teleprompter-sheet {
+      margin-top: 16px;
+      background: var(--paper-aged);
+      color: var(--ink-black);
+      border-radius: 6px;
+      padding: 14px;
+      border: 1px solid #b8a68b;
+      font-size: 13px;
+      line-height: 1.8;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.15);
+      position: relative;
+    }
+
+    .teleprompter-stamp {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      color: #8c1e24;
+      font-size: 11px;
+      font-weight: bold;
+      border: 1px dashed #8c1e24;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* =========================================
+       SECTION 3: BLUEPRINT & CRIME SCENE
+       ========================================= */
+    .blueprint-frame {
+      background: #0e2026;
+      border: 2px solid var(--cyan-line);
+      border-radius: 8px;
+      padding: 14px;
+      position: relative;
+      box-shadow: inset 0 0 25px rgba(0,0,0,0.8), 0 6px 20px rgba(0,0,0,0.7);
+      background-image: linear-gradient(rgba(79, 164, 184, 0.12) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(79, 164, 184, 0.12) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .blueprint-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--cyan-line);
+      border-bottom: 1px solid rgba(79, 164, 184, 0.4);
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .blueprint-map {
+      width: 100%;
+      height: 220px;
+      position: relative;
+      border: 1px dashed rgba(79, 164, 184, 0.5);
+      border-radius: 6px;
+      background: rgba(10, 24, 30, 0.7);
+      overflow: hidden;
+    }
+
+    /* Map Zones */
+    .map-zone {
+      position: absolute;
+      border: 1px solid rgba(79, 164, 184, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 10px;
+      color: var(--cyan-line);
+      font-weight: bold;
+      text-align: center;
+      padding: 2px;
+    }
+
+    .zone-pool {
+      top: 55%;
+      left: 35%;
+      width: 30%;
+      height: 28%;
+      border-radius: 50%;
+      background: rgba(40, 80, 95, 0.3);
+      border: 1.5px dashed var(--cyan-line);
+    }
+
+    .zone-villa {
+      top: 10%;
+      left: 20%;
+      width: 60%;
+      height: 35%;
+      background: rgba(20, 45, 55, 0.5);
+    }
+
+    .zone-gate {
+      bottom: 4%;
+      left: 40%;
+      width: 20%;
+      height: 10%;
+      background: rgba(143, 29, 36, 0.3);
+      border-color: #a8202a;
+      color: #e66b72;
+    }
+
+    /* Interactive Hotspot Pins */
+    .map-pin {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: var(--stamp-red);
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+      animation: pulsePin 1.8s infinite;
+      z-index: 10;
+    }
+
+    @keyframes pulsePin {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 30, 40, 0.7); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(220, 30, 40, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 30, 40, 0); }
+    }
+
+    .pin-info-box {
+      margin-top: 14px;
+      background: #17242a;
+      border: 1px solid var(--cyan-line);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #cbe6ed;
+    }
+
+    /* Polaroid photos collection */
+    .polaroid-gallery {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .polaroid-card {
+      background: #f7f3ea;
+      padding: 8px 8px 14px;
+      border-radius: 4px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+      transform: rotate(-2deg);
+      border: 1px solid #d4c8b6;
+    }
+
+    .polaroid-card:nth-child(even) {
+      transform: rotate(2deg);
+    }
+
+    .polaroid-img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      filter: sepia(0.65) contrast(1.2) brightness(0.85);
+      border-radius: 2px;
+      background: #000;
+    }
+
+    .polaroid-caption {
+      font-size: 10px;
+      color: #2b231c;
+      text-align: center;
+      margin-top: 6px;
+      font-weight: bold;
+    }
+
+    /* =========================================
+       SECTION 4: OPERATION MIDNIGHT (00:30)
+       ========================================= */
+    .midnight-panel {
+      transition: all 0.4s ease;
+    }
+
+    .darkroom-active {
+      background: #120002 !important;
+      border-color: #ff0026 !important;
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.4) !important;
+    }
+
+    .btn-darkroom-toggle {
+      width: 100%;
+      background: linear-gradient(180deg, #990014 0%, #55000b 100%);
+      border: 2px solid #ff2a44;
+      color: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 15px rgba(255, 0, 30, 0.5);
+      margin-bottom: 16px;
+    }
+
+    /* Envelope Wax Seal Cards */
+    .envelope-card {
+      background: #332025;
+      border: 1px solid rgba(207, 168, 78, 0.4);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    .envelope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .envelope-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--gold-accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wax-seal {
+      width: 32px;
+      height: 32px;
+      background: radial-gradient(circle, #b81420 40%, #750911 100%);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #f7d8dc;
+      font-size: 14px;
+      font-weight: bold;
+      border: 1.5px solid #d45963;
+    }
+
+    .envelope-poem {
+      background: var(--paper-cream);
+      color: var(--ink-black);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.8;
+      border: 1px solid #c9bda5;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .envelope-poem.revealed {
+      display: block;
+      animation: poemUnfold 0.3s ease-out forwards;
+    }
+
+    @keyframes poemUnfold {
+      from { opacity: 0; transform: scaleY(0.6); }
+      to { opacity: 1; transform: scaleY(1); }
+    }
+
+    .solve-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .solve-input {
+      flex: 1;
+      background: #171114;
+      border: 1px solid rgba(207, 168, 78, 0.4);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+    .solve-input:focus {
+      border-color: var(--gold-accent);
+      box-shadow: 0 0 8px rgba(207, 168, 78, 0.4);
+    }
+
+    .btn-solve-submit {
+      background: #8f1d24;
+      border: 1px solid var(--gold-accent);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* Courtyard Rescue Knife Switch */
+    .switch-panel {
+      margin-top: 18px;
+      background: #1b161c;
+      border: 2px solid #55445c;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .switch-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffbb44;
+      margin-bottom: 6px;
+    }
+
+    .switch-desc {
+      font-size: 11px;
+      color: #a89aa8;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .btn-knife-switch {
+      background: linear-gradient(180deg, #c4962f 0%, #7d5e1a 100%);
+      border: 2px solid #ecd896;
+      color: #1a1005;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.6);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-knife-switch:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.8);
+      background: #5c4412;
+      color: #fff;
+    }
+
+    /* Full-screen 10-second flash alert */
+    #rescue-flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+      z-index: 100;
+      display: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    #rescue-flash-overlay.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      opacity: 0.96;
+      color: #111;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* Fixed Bottom Navigation */
+    #bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(env(safe-area-inset-bottom, 12px) + 54px);
+      padding-bottom: env(safe-area-inset-bottom, 12px);
+      background: rgba(14, 10, 14, 0.95);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(207, 168, 78, 0.25);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .nav-btn {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 6px 2px;
-      border-radius: 14px;
-      color: #8c8294;
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.25s;
-    }
-
-    .nav-item .icon {
-      font-size: 18px;
-      margin-bottom: 2px;
-      transition: transform 0.2s;
-    }
-
-    .nav-item.active {
-      color: #d4af50;
-      background: rgba(212, 175, 80, 0.12);
-    }
-    .nav-item.active .icon {
-      transform: translateY(-2px) scale(1.1);
-    }
-
-    /* Modals & Overlays */
-    .hud-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 20;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(8px);
-      padding: 24px;
-      text-align: center;
-    }
-    .hud-overlay.visible {
-      display: flex;
-    }
-
-    .modal-card {
-      background: #141017;
-      border: 1px solid #d4af50;
-      border-radius: 18px;
-      padding: 20px;
-      max-width: 360px;
-      width: 100%;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.9), 0 0 20px rgba(212, 175, 80, 0.2);
-    }
-
-    .modal-title {
-      font-size: 17px;
-      color: #d4af50;
-      margin-bottom: 12px;
+      gap: 3px;
+      color: #8c7d86;
+      font-size: 11px;
       font-weight: bold;
-    }
-
-    .modal-body {
-      font-size: 13px;
-      color: #d0c8d8;
-      line-height: 1.7;
-      margin-bottom: 18px;
-    }
-
-    .modal-input {
-      width: 100%;
-      padding: 10px 14px;
-      background: #201a24;
-      border: 1px solid rgba(212, 175, 80, 0.4);
-      border-radius: 10px;
-      color: #fff;
-      font-size: 14px;
-      text-align: center;
-      outline: none;
-      margin-bottom: 14px;
-    }
-    .modal-input:focus {
-      border-color: #d4af50;
-      box-shadow: 0 0 10px rgba(212, 175, 80, 0.4);
-    }
-
-    .modal-btn {
-      width: 100%;
-      padding: 11px;
-      background: linear-gradient(135deg, #d4af50, #967420);
-      color: #111;
+      background: none;
       border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: bold;
       cursor: pointer;
-      transition: all 0.2s;
-    }
-    .modal-btn:active {
-      transform: scale(0.97);
+      padding: 6px 0;
+      transition: all 0.2s ease;
     }
 
-    /* Red Lantern Mode Overwrite */
-    body.red-mode {
-      background-color: #120002 !important;
-    }
-    body.red-mode #top-hud,
-    body.red-mode #bottom-nav {
-      border-color: rgba(255, 30, 30, 0.5);
-      background: rgba(25, 0, 3, 0.9);
-    }
-    body.red-mode .hud-title,
-    body.red-mode .nav-item.active {
-      color: #ff3344 !important;
-    }
-    body.red-mode .nav-item.active {
-      background: rgba(255, 50, 50, 0.18);
-    }
-    body.red-mode .hud-btn {
-      border-color: #ff3344;
-      color: #ffaaaa;
+    .nav-btn .nav-icon {
+      font-size: 17px;
     }
 
-    /* Loading Spinner */
-    #loader {
+    .nav-btn.active {
+      color: var(--gold-accent);
+      transform: translateY(-2px);
+    }
+
+    /* Loading Screen */
+    #loading-screen {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 100;
-      background: #060408;
+      background: #080507;
+      z-index: 150;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       gap: 16px;
-      transition: opacity 0.5s;
+      transition: opacity 0.4s ease;
     }
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 3px solid rgba(212, 175, 80, 0.2);
-      border-top-color: #d4af50;
+
+    .loader-stamp {
+      border: 3px double var(--stamp-red);
+      color: var(--stamp-red);
+      padding: 10px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      transform: rotate(-6deg);
+    }
+
+    .loader-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(207, 168, 78, 0.2);
+      border-top-color: var(--gold-accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <div id="loader">
-    <div class="spinner"></div>
-    <div style="color: #d4af50; font-size: 14px; font-weight: bold;">در حال گشودن دروازه‌های عمارت...</div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loader-stamp">شهربانی شیراز — پرونده ۵۲/۷</div>
+    <div class="loader-spinner"></div>
+    <div style="font-size: 12px; color: #a4948a;">در حال رمزگشایی اسناد بایگانی راکد صدرا (۱۳۵۶)...</div>
   </div>
 
-  <div id="top-hud">
-    <div>
-      <div class="hud-title"><span>🏰</span> <span>باغ سرهنگ</span></div>
-      <div class="hud-guest" id="guest-name-display">در حال ارتباط با بات...</div>
-    </div>
-    <div class="hud-controls">
-      <button class="hud-btn" id="btn-sound">🔊 صدا</button>
-      <button class="hud-btn" id="btn-gyro">📱 سنسور</button>
-    </div>
+  <!-- Rescue 10-Second Flash Overlay -->
+  <div id="rescue-flash-overlay">
+    <div style="font-size: 40px; margin-bottom: 12px;">💡</div>
+    <h2 style="font-size: 20px; font-weight: bold; color: #8a171d; margin-bottom: 8px;">نور حیات باغ روشن شد!</h2>
+    <p style="font-size: 14px; color: #222; max-width: 280px; line-height: 1.6;">
+      ژنراتور اضطراری سالن فعال است. روح سرهنگ موقتاً کور شده؛ پاکت طلسم را پیدا کنید!
+    </p>
+    <div id="rescue-timer-count" style="font-size: 32px; font-weight: bold; margin-top: 14px; color: #8a171d;">۱۰</div>
   </div>
 
-  <div id="canvas-container"></div>
+  <!-- Ambient Desk View -->
+  <div id="desk-container">
+    <div class="vignette-overlay"></div>
 
-  <div id="bottom-nav">
-    <div class="nav-item active" data-scene="card">
-      <div class="icon">🎴</div>
-      <div>کارت من</div>
-    </div>
-    <div class="nav-item" data-scene="tape">
-      <div class="icon">🎙</div>
-      <div>نوار کاست</div>
-    </div>
-    <div class="nav-item" data-scene="midnight">
-      <div class="icon">🔴</div>
-      <div>فانوس سرخ</div>
-    </div>
-    <div class="nav-item" data-scene="radar">
-      <div class="icon">🔦</div>
-      <div>معما و تیم</div>
-    </div>
-    <div class="nav-item" data-scene="lounge">
-      <div class="icon">🛋</div>
-      <div>سالن امن</div>
-    </div>
-  </div>
-
-  <!-- Solve Riddle Modal -->
-  <div class="hud-overlay" id="modal-solve">
-    <div class="modal-card">
-      <div class="modal-title">🧩 ثبت رمز معما در باغ</div>
-      <div class="modal-body" id="solve-modal-desc">
-        پاسخ کشف‌شده از پاکت طلسم روی درختان را وارد کنید:
+    <!-- Police File Top Bar -->
+    <header id="file-header">
+      <div class="case-badge">
+        <span class="case-title">⚖️ پرونده محرمانه ۵۲/۷</span>
+        <span class="case-sub">واقعه عمارت باغ سرهنگ — آبان ۱۳۵۶</span>
       </div>
-      <input type="text" class="modal-input" id="riddle-input" placeholder="مثال: خون یا ۱۳۵۶">
-      <button class="modal-btn" id="btn-submit-riddle">ارسال رمز معما</button>
-      <button class="hud-btn" style="width: 100%; margin-top: 8px; justify-content: center;" id="btn-close-solve">بستن</button>
-    </div>
+      <div class="header-actions">
+        <button id="btn-sound-toggle" class="btn-badge">🔊 صدا</button>
+      </div>
+    </header>
+
+    <!-- Main Dossier Folder Body -->
+    <main id="dossier-main">
+
+      <!-- Folder Top Tabs -->
+      <div id="folder-tabs">
+        <div class="folder-tab active" data-sheet="sheet-profile">📁 هویت سوژه</div>
+        <div class="folder-tab" data-sheet="sheet-tape">🎙 نوار کاست ۷</div>
+        <div class="folder-tab" data-sheet="sheet-blueprint">🗺 کروکی صحنه جرم</div>
+        <div class="folder-tab" data-sheet="sheet-midnight">🏮 عملیات نیمه‌شب</div>
+      </div>
+
+      <!-- =========================================
+           SHEET 1: SUBJECT IDENTITY & CARD
+           ========================================= -->
+      <section id="sheet-profile" class="folder-sheet active">
+        <div class="police-paper">
+          <div class="classified-stamp">فوق‌محرمانه</div>
+
+          <div class="paper-header">
+            <div class="paper-ministry">اداره شهربانی و آگاهی استان فارس — بایگانی اسناد محرمانه</div>
+            <div class="paper-title">برگه شناسایی و احضار مدعو به عمارت صدرا</div>
+          </div>
+
+          <div class="doc-grid">
+            <div class="doc-row">
+              <span class="doc-label">نام و شهرت مدعو:</span>
+              <span id="prof-name" class="doc-val">در حال فراخوانی...</span>
+            </div>
+            <div class="doc-row">
+              <span class="doc-label">نقش تخصیص‌یافته:</span>
+              <span id="prof-role" class="doc-val" style="color: var(--ink-red);">بازیکن طلسم</span>
+            </div>
+            <div class="doc-row">
+              <span class="doc-label">کد انفرادی روح (Soul PIN):</span>
+              <span id="prof-pin" class="stamped-pin">---</span>
+            </div>
+            <div class="doc-row">
+              <span class="doc-label">تیم حیاط:</span>
+              <span id="prof-team" class="doc-val">تیم ۱ (خون)</span>
+            </div>
+          </div>
+
+          <div class="carpool-box">
+            <div style="font-weight: bold; color: #533f2a; margin-bottom: 4px;">🚗 کاروان خودرویی اعزام به صدرا:</div>
+            <div>• <b>شماره خودرو:</b> <span id="prof-car">خودرو شماره ۱</span></div>
+            <div>• <b>راننده / کاپیتان:</b> <span id="prof-driver">تعیین نشده</span></div>
+            <div>• <b>همسفران شما:</b> <span id="prof-passengers">در حال تکمیل ظرفیت ۴ نفره</span></div>
+            <div style="margin-top: 6px; font-size: 11px; color: #73593f;">📍 زمان حرکت: پنجشنبه ۷ آبان — ۱۷:۳۰ رأس ورودی شهرک صدرا</div>
+          </div>
+        </div>
+
+        <!-- Pinned Invitation Card Preview -->
+        <div class="card-preview-container">
+          <div style="font-size: 12px; font-weight: bold; color: var(--gold-accent); margin-bottom: 8px;">
+            🎴 کارت دعوت تشریفاتی ضمیمه‌شده به پرونده
+          </div>
+
+          <div class="card-inspect-wrapper" id="card-inspect-box">
+            <div class="card-flipper" id="card-flipper-el">
+              <!-- Front -->
+              <div class="card-side card-front">
+                <div style="font-size: 10px; letter-spacing: 2px; color: #c4b5a5;">PROJECT BLACKOUT 1356</div>
+                <div>
+                  <div style="font-size: 22px; font-weight: bold; color: var(--gold-accent); margin-bottom: 4px;">داستان یک میهمانی</div>
+                  <div style="font-size: 13px; color: #e8ded4;" id="card-name-front">مهمان عمارت</div>
+                </div>
+                <div style="font-size: 11px; color: #a89aa8;">باغ سرهنگ — صدرا</div>
+              </div>
+              <!-- Back -->
+              <div class="card-side card-back">
+                <div style="font-size: 13px; font-weight: bold; color: var(--gold-accent);">شناسه روح شما</div>
+                <div id="card-pin-back" style="font-size: 32px; font-weight: bold; color: #ff3344; letter-spacing: 3px;">---</div>
+                <div style="font-size: 11px; color: #c4b5a5; line-height: 1.5;">
+                  این پین رمز حیات شما در بازی نیمه‌شب است. آن را تا زمان واقعه از دیگران مخفی نگه دارید.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-hint">💡 برای چرخاندن کارت و دیدن پشت آن، روی کارت ضربه بزنید.</div>
+
+          <button id="btn-play-narration" class="btn-play-voice">
+            <span>🎙</span>
+            <span>شنیدن فایل صوتی بازجویی و روایت سرهنگ</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================
+           SHEET 2: NAGRA CASSETTE DECK
+           ========================================= -->
+      <section id="sheet-tape" class="folder-sheet">
+        <div class="tape-deck-chassis">
+          <div class="deck-faceplate">
+            <div class="deck-top-row">
+              <span class="deck-brand">NAGRA IV-S • ARCHIVE 1356</span>
+              <!-- Backlit Analog VU Meter -->
+              <div class="vu-meter-box">
+                <div class="vu-dial">
+                  <span>-20</span>
+                  <span>-7</span>
+                  <span>0</span>
+                  <span>+3</span>
+                </div>
+                <div class="vu-needle" id="vu-needle-el"></div>
+              </div>
+            </div>
+
+            <!-- Cassette Tape Compartment -->
+            <div class="cassette-compartment">
+              <div class="cassette-body" id="cassette-body-el">
+                <div class="cassette-label">نوار شماره ۷ سرهنگ — آبان ۱۳۵۶</div>
+                <div class="tape-spool"><div class="tape-teeth"></div></div>
+                <div class="tape-spool"><div class="tape-teeth"></div></div>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="deck-controls">
+              <button id="btn-tape-play" class="deck-btn">▶ پخش نوار</button>
+              <button id="btn-tape-pause" class="deck-btn">⏸ توقف</button>
+              <button id="btn-tape-rewind" class="deck-btn">⏮ بازپیچی</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time Typewriter Teleprompter -->
+        <div class="teleprompter-sheet">
+          <div class="teleprompter-stamp">سند صوتی کلاسه ۲</div>
+          <div style="font-weight: bold; color: #69171b; margin-bottom: 8px;">متن پیاده‌شده از صدای سرهنگ:</div>
+          <p id="tape-transcript-text" style="min-height: 90px;">
+            «این نوار برای کسیه که بعد از من در این باغ رو باز میکنه... پنجشنبه پاییز ۱۳۵۶... ۵۲ نفر دعوت شده بودن. اسم تو هم بینشونه. آخرین مهمونی باغ با یه اتفاق تموم شد که هیچکس فکرش رو نمیکرد... کلید سالن دست خودمه... اگر چراغ‌های باغ خاموش شد، تنها نوری که سرهنگ بهش حساس نیست، فانوس سرخه...»
+          </p>
+        </div>
+      </section>
+
+      <!-- =========================================
+           SHEET 3: BLUEPRINT & CRIME SCENE
+           ========================================= -->
+      <section id="sheet-blueprint" class="folder-sheet">
+        <div class="blueprint-frame">
+          <div class="blueprint-title">
+            <span>📐 کروکی امنیتی باغ و عمارت سرهنگ (صدرا)</span>
+            <span style="font-size: 10px;">مقیاس ۱:۱۰۰</span>
+          </div>
+
+          <div class="blueprint-map">
+            <div class="map-zone zone-villa">عمارت اصلی و سالن بلوندها</div>
+            <div class="map-zone zone-pool">استخر خشکیده</div>
+            <div class="map-zone zone-gate">دروازه باغ</div>
+
+            <!-- Interactive Hotspot Pins -->
+            <div class="map-pin" style="top: 85%; left: 45%;" data-pin="1">۱</div>
+            <div class="map-pin" style="top: 62%; left: 45%;" data-pin="2">۲</div>
+            <div class="map-pin" style="top: 25%; left: 30%;" data-pin="3">۳</div>
+            <div class="map-pin" style="top: 20%; left: 65%;" data-pin="4">۴</div>
+          </div>
+
+          <div class="pin-info-box" id="pin-info-display">
+            💡 روی شماره‌های قرمز رنگ کروکی ضربه بزنید تا گزارش محرمانه هر نقطه از باغ باز شود.
+          </div>
+        </div>
+
+        <!-- Polaroid Photos -->
+        <div class="polaroid-gallery">
+          <div class="polaroid-card">
+            <img src="./images/card_bg.jpg" class="polaroid-img" alt="عمارت باغ سرهنگ">
+            <div class="polaroid-caption">عمارت صدرا در شب واقعه — پاییز ۱۳۵۶</div>
+          </div>
+          <div class="polaroid-card">
+            <img src="./images/bot_profile.jpg" class="polaroid-img" alt="سرهنگ">
+            <div class="polaroid-caption">آخرین عکس ثبت‌شده از سرهنگ</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =========================================
+           SHEET 4: OPERATION MIDNIGHT (00:30)
+           ========================================= -->
+      <section id="sheet-midnight" class="folder-sheet">
+        <div class="midnight-panel" id="midnight-panel-box">
+          <button id="btn-darkroom" class="btn-darkroom-toggle">
+            <span>🔴</span>
+            <span>فعال‌سازی حالت تاریک‌خانه سرخ (نور ایمن)</span>
+          </button>
+
+          <!-- Envelope 1 -->
+          <div class="envelope-card">
+            <div class="envelope-header">
+              <span class="envelope-title">📜 پاکت اول: طلسم آب (استخر خشکیده)</span>
+              <div class="wax-seal" id="seal-1">۱</div>
+            </div>
+            <button class="btn-badge" id="btn-open-env-1" style="width: 100%; justify-content: center; margin-bottom: 8px;">
+              🔓 شکستن مُهر موم و باز کردن پاکت
+            </button>
+            <div class="envelope-poem" id="poem-1">
+              <i>«در دل تاریکی شب، آنجا که آب سال‌هاست خشکیده، زیر سایه کاج کهن، چشم به راه توست... کلمه رهایی را بگو تا درها باز شوند.»</i>
+            </div>
+            <div class="solve-row">
+              <input type="text" class="solve-input" id="input-solve-1" placeholder="پاسخ رمز پاکت اول...">
+              <button class="btn-solve-submit" id="btn-solve-1">ثبت</button>
+            </div>
+          </div>
+
+          <!-- Envelope 2 -->
+          <div class="envelope-card">
+            <div class="envelope-header">
+              <span class="envelope-title">📜 پاکت دوم: طلسم خاک (راه‌پله عمارت)</span>
+              <div class="wax-seal" id="seal-2">۲</div>
+            </div>
+            <button class="btn-badge" id="btn-open-env-2" style="width: 100%; justify-content: center; margin-bottom: 8px;">
+              🔓 شکستن مُهر موم و باز کردن پاکت
+            </button>
+            <div class="envelope-poem" id="poem-2">
+              <i>«پله‌ها به جایی ختم می‌شوند که سکوت ابدی حکمفرماست. دومین رمز، نام همان رازی است که سرهنگ با خود به خاک برد...»</i>
+            </div>
+            <div class="solve-row">
+              <input type="text" class="solve-input" id="input-solve-2" placeholder="پاسخ رمز پاکت دوم...">
+              <button class="btn-solve-submit" id="btn-solve-2">ثبت</button>
+            </div>
+          </div>
+
+          <!-- Blondes Courtyard Rescue Switch -->
+          <div class="switch-panel" id="blonde-rescue-section">
+            <div class="switch-title">⚡️ اهرم اضطراری ژنراتور نور حیات باغ</div>
+            <div class="switch-desc">
+              مخصوص سالن بلوندها: کشیدن این اهرم نور حیاط را به مدت ده ثانیه روشن کرده و روح سرهنگ را کور می‌کند (حداکثر ۳ بار).
+            </div>
+            <button id="btn-rescue-lever" class="btn-knife-switch">
+              <span>💡</span>
+              <span>روشن کردن نور حیات باغ (۱۰ ثانیه)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Tab Navigation -->
+    <nav id="bottom-nav">
+      <button class="nav-btn active" data-sheet="sheet-profile">
+        <span class="nav-icon">📁</span>
+        <span>هویت و کارت</span>
+      </button>
+      <button class="nav-btn" data-sheet="sheet-tape">
+        <span class="nav-icon">🎙</span>
+        <span>نوار کاست ۷</span>
+      </button>
+      <button class="nav-btn" data-sheet="sheet-blueprint">
+        <span class="nav-icon">🗺</span>
+        <span>کروکی باغ</span>
+      </button>
+      <button class="nav-btn" data-sheet="sheet-midnight">
+        <span class="nav-icon">🏮</span>
+        <span>نیمه‌شب</span>
+      </button>
+    </nav>
   </div>
 
   <script type="module" src="./src/main.js"></script>
