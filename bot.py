@@ -14,12 +14,9 @@ from database import init_db
 from handlers import user_router, admin_router, game_router
 
 async def start_healthcheck_server():
-    """Starts a lightweight HTTP server on $PORT for cloud platforms (Render, Koyeb, Railway)."""
-    port_str = os.getenv("PORT")
-    if not port_str:
-        return None
+    """Starts a lightweight HTTP server on $PORT for cloud platforms (HuggingFace, Render, Railway)."""
     try:
-        port = int(port_str)
+        port = int(os.getenv("PORT", "7860"))
         app = web.Application()
         async def handle_ping(request):
             return web.Response(text="Colonel Party Bot is LIVE 24/7!")
