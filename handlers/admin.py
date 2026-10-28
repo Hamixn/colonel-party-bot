@@ -39,10 +39,10 @@ async def cmd_admin_help(message: Message):
         "دستورات موجود:\n"
         "📊 `/stats` — مشاهده آمار زنده ثبت‌نام، ظرفیت‌ها و تسخیرشدگان\n"
         "📋 `/list` — دریافت لیست متنی مهمانان + فایل کامل اکسل/CSV\n"
-        "🎭 `/start_social_game` — کلید زدن بازی ۱۹:۱۵ (تعیین ۵ تسخیرشده و ارسال ماموریت‌ها با استیکر)\n"
-        "🌑 `/start_midnight_game` — کلید زدن بازی حیاط (ساعت ۰۰:۳۰ بامداد، ارسال فانوس سرخ، ۴ تیم، ۴ خائن و معماها)\n"
-        "🗝 `/reveal_traitors` — اعلام عمومی و افشای ۵ تسخیرشده و ۴ خائن در ساعت ۰۲:۰۰ بامداد\n"
-        "🚗 `/assign_carpool` — نمایش وضعیت کاروان ۱۳ تایی صدرا\n"
+        "🎭 `/start_social_game` — کلید زدن بازی ۱۹:۳۰ (تعیین ۳ تسخیرشده و ارسال ماموریت‌ها با استیکر)\n"
+        "🌑 `/start_midnight_game` — کلید زدن بازی حیاط (ساعت ۲۴:۰۰ نیمه‌شب، ارسال فانوس سرخ، تیم‌ها، خائنین و معماها)\n"
+        "🗝 `/reveal_traitors` — اعلام عمومی و افشای ۳ تسخیرشده و خائنین\n"
+        "🚗 `/assign_carpool` — نمایش وضعیت کاروان خودروها\n"
         "📢 `/broadcast <متن>` — ارسال پیام همگانی به تمام مهمانان\n"
         "🕯 `/broadcast_players <متن>` — ارسال پیام اختصاصی به گروه بازیکنان\n"
         "👱‍♀️ `/broadcast_blondes <متن>` — ارسال پیام اختصاصی به گروه بلوندهای بی‌گناه\n"
@@ -152,18 +152,18 @@ async def cmd_start_social_game(message: Message, bot: Bot):
         return
 
     players = await database.get_players()
-    if len(players) < 5:
+    if len(players) < 3:
         await message.answer(
-            f"⚠️ تعداد بازیکنان ثبت‌شده ({len(players)} نفر) کمتر از ۵ نفر است!\n"
-            f"حداقل ۵ نفر بازیکن برای شروع بازی نیاز است."
+            f"⚠️ تعداد بازیکنان ثبت‌شده ({len(players)} نفر) کمتر از ۳ نفر است!\n"
+            f"حداقل ۳ نفر بازیکن برای شروع بازی نیاز است."
         )
         return
 
-    res = await database.start_social_game(count=5)
+    res = await database.start_social_game(count=3)
     hunters = res["hunters"]
     regular = res["regular_players"]
 
-    # 1. Notify the 5 infected
+    # 1. Notify the 3 infected
     hunter_success = 0
     for h in hunters:
         tid = h.get("telegram_id")
@@ -182,8 +182,8 @@ async def cmd_start_social_game(message: Message, bot: Bot):
             mission_id = p.get("social_mission_id", 1)
             mission_text = game.SOCIAL_MISSIONS.get(mission_id, game.SOCIAL_MISSIONS[1])
             text = (
-                "🩸 **[آغاز بازی اجتماعی سالن — ساعت ۱۹:۱۵]**\n\n"
-                "۵ تسخیرشده‌ی پنهان با بسته‌های استیکر در سالن رها شده‌اند!\n\n"
+                "🩸 **[آغاز بازی اجتماعی سالن — ساعت ۱۹:۳۰]**\n\n"
+                "۳ تسخیرشده‌ی پنهان با بسته‌های استیکر در سالن رها شده‌اند!\n\n"
                 f"🎯 **ماموریت اجتماعی شما برای فعال‌سازی طلسم مصونیت:**\n"
                 f"||{mission_text}||\n\n"
                 "💡 به محض انجام این ماموریت در سالن، دکمه‌ی «✅ ماموریتم رو انجام دادم!» را لمس کنید تا کارت طلسم مصونیت سبز دریافت کنید.\n"
@@ -216,8 +216,8 @@ async def cmd_start_social_game(message: Message, bot: Bot):
 
     hunters_names = "، ".join([h["full_name"] for h in hunters])
     await message.answer(
-        f"✅ **بازی اجتماعی ساعت ۱۹:۱۵ آغاز شد!**\n\n"
-        f"🩸 **۵ تسخیرشده‌ی منتخب:** {hunters_names}\n"
+        f"✅ **بازی اجتماعی ساعت ۱۹:۳۰ آغاز شد!**\n\n"
+        f"🩸 **۳ تسخیرشده‌ی منتخب:** {hunters_names}\n"
         f"📨 پیام برای {hunter_success} تسخیرشده و {regular_success} بازیکن ارسال گردید."
     )
 
@@ -290,7 +290,7 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             await bot.send_message(
                 chat_id=b_tid,
                 text=(
-                    "🍿 **[ساعت ۰۰:۳۰ — زنگ خاموشی عمارت و آغاز بازی حیاط نواخته شد!]**\n\n"
+                    "🍿 **[ساعت ۲۴:۰۰ — زنگ خاموشی عمارت و آغاز بازی حیاط نواخته شد!]**\n\n"
                     "چراغ‌های حیاط خاموش شد و بازیکنان با فانوس سرخ وارد تاریکی باغ شدند!\n"
                     "پخش فیلم سینمایی ترسناک در سالن گرم با نوشیدنی و پاپ‌کورن آغاز گردید.\n\n"
                     "💡 یادآوری: در صورت بحرانی شدن اوضاع حیاط، می‌توانید با دکمه‌ی «💡 روشن کردن نور حیات باغ» موقتاً ارواح را کور کنید."
@@ -299,7 +299,7 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
         except Exception:
             pass
 
-    summary = ["🔦 **بازی ساعت ۰۰:۳۰ حیاط با موفقیت آغاز گردید!**\n"]
+    summary = ["🔦 **بازی ساعت ۲۴:۰۰ حیاط با موفقیت آغاز گردید!**\n"]
     for t_num, t_info in teams.items():
         tr_name = t_info["traitor"]["full_name"] if t_info.get("traitor") else "نامشخص"
         m_count = len(t_info["members"])
@@ -411,7 +411,7 @@ async def cmd_assign_carpool(message: Message):
         return
 
     manifest = await database.get_carpool_manifest()
-    summary = ["🚗 **وضعیت کاروان ۱۳ تایی صدرا:**\n"]
+    summary = ["🚗 **وضعیت کاروان خودروها:**\n"]
     for c_num, info in manifest.items():
         driver = info.get("driver") or "بدون راننده"
         passengers = info.get("passengers", [])

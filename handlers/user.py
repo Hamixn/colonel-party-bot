@@ -77,13 +77,13 @@ async def send_existing_card(message_or_callback, guest: dict):
         car_type = "🚗 کاپیتان و راننده خودرو" if guest.get("has_car") == 1 else "🚶 مسافر و سرنشین خودرو"
 
         car_summary = (
-            f"🚗 **مشخصات ترابری خودروی شما در کاروان صدرا:**\n\n"
+            f"🚗 **مشخصات ترابری خودروی شما در کاروان:**\n\n"
             f"🔢 **شماره خودرو:** خودروی شماره {car_num}\n"
             f"🚘 **راننده خودرو:** {driver_contact}\n"
             f"👥 **همسفران:** {pass_str}\n"
             f"👤 **وضعیت شما:** {car_type}\n"
-            f"📍 **زمان و مکان تجمع:** پنجشنبه ۷ آبان — ساعت ۱۷:۳۰ رأس ورودی صدرا\n\n"
-            f"💡 جهت دسترسی مجدد به اطلاعات خودرو می‌توانید دستور /carpool یا دکمه‌ی «🚗 کاروان صدرا» را لمس کنید."
+            f"📍 **زمان و مکان تجمع:** پنجشنبه ۲۹ اکتبر — حرکت رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n\n"
+            f"💡 جهت دسترسی مجدد به اطلاعات خودرو می‌توانید دستور /carpool یا دکمه‌ی «🚗 کاروان» را لمس کنید."
         )
         await target.answer(car_summary)
 
@@ -104,33 +104,31 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(RegistrationStates.waiting_for_name)
 
+    # Send dramatic voice narration if available
     if VOICE_WELCOME_FILE_ID:
         try:
             await message.answer_voice(
                 voice=VOICE_WELCOME_FILE_ID,
-                caption=texts.START_WELCOME_TEXT,
-                reply_markup=keyboards.enter_dossier_kb()
+                caption="🎧 **صوت محرمانه‌ی پرونده‌ی باغ سرهنگ (شنیدن با هندزفری):**"
             )
-            return
         except Exception as e:
             print(f"Fallback from cached voice ID due to: {e}")
+    else:
+        voice_path = Path("assets/audio/welcome_narration.ogg")
+        if not voice_path.exists():
+            voice_path = Path("assets/audio/welcome_narration.mp3")
 
-    voice_path = Path("assets/audio/welcome_narration.ogg")
-    if not voice_path.exists():
-        voice_path = Path("assets/audio/welcome_narration.mp3")
+        if voice_path.exists():
+            try:
+                voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.ogg")
+                await message.answer_voice(
+                    voice=voice_file,
+                    caption="🎧 **صوت محرمانه‌ی پرونده‌ی باغ سرهنگ (شنیدن با هندزفری):**"
+                )
+            except Exception as e:
+                print(f"Fallback to text message due to: {e}")
 
-    if voice_path.exists():
-        try:
-            voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.ogg")
-            await message.answer_voice(
-                voice=voice_file,
-                caption=texts.START_WELCOME_TEXT,
-                reply_markup=keyboards.enter_dossier_kb()
-            )
-            return
-        except Exception as e:
-            print(f"Fallback to text message due to: {e}")
-
+    # Send the full welcome story text with the registration button
     await message.answer(
         texts.START_WELCOME_TEXT,
         reply_markup=keyboards.enter_dossier_kb()
@@ -258,11 +256,11 @@ async def cb_name_confirmed(callback: CallbackQuery, state: FSMContext):
 
         driver_msg = (
             f"🚗 **تبریک {p['name']}! شما به عنوان کاپیتان خودروی شماره {cg} ثبت شده‌اید.**\n\n"
-            f"👥 **همسفران گروه شما برای حرکت ۱۷:۳۰ از ورودی صدرا:**\n"
+            f"👥 **همسفران گروه شما برای حرکت ۱۸:۰۰ به سمت خانزنیان:**\n"
             f"• {members_str}\n\n"
             f"⛔️ **قانون خروج از عمارت (بسیار مهم):**\n"
-            f"دروازه‌ی باغ پس از بسته شدن در ساعت ۱۸:۱۵، **تا ساعت ۲۴:۰۰ نیمه‌شب تحت هیچ شرایطی باز نخواهد شد!** خروج زودهنگام قبل از ساعت ۱۲ امکان‌پذیر نیست.\n\n"
-            f"ساعت ۱۷:۳۰ در ورودی صدرا منتظر شما و همسفرانتان هستیم!"
+            f"دروازه‌ی باغ پس از بسته شدن در ساعت ۱۸:۴۵، **تا ساعت ۲۴:۰۰ نیمه‌شب تحت هیچ شرایطی باز نخواهد شد!** خروج زودهنگام قبل از ساعت ۱۲ امکان‌پذیر نیست.\n\n"
+            f"ساعت ۱۸:۰۰ در محل قرار منتظر شما و همسفرانتان هستیم!"
         )
         await database.register_or_update_guest(
             telegram_id=callback.from_user.id,
@@ -297,9 +295,9 @@ async def cb_name_confirmed(callback: CallbackQuery, state: FSMContext):
             f"🔹 **{car_label}**\n"
             f"👥 همسفران شما: **{members_str}**\n\n"
             f"⛔️ **قانون خروج از عمارت (بسیار مهم):**\n"
-            f"دروازه‌های عمارت پس از بسته شدن در ساعت ۱۸:۱۵، **تا ساعت ۲۴:۰۰ نیمه‌شب تحت هیچ شرایطی باز نخواهد شد!**\n"
+            f"دروازه‌های عمارت پس از بسته شدن در ساعت ۱۸:۴۵، **تا ساعت ۲۴:۰۰ نیمه‌شب تحت هیچ شرایطی باز نخواهد شد!**\n"
             f"خروج زودهنگام قبل از ساعت ۱۲ شب امکان‌پذیر نیست؛ بنابراین آوردن خودروی شخصی **هیچ انعطافی در زمان رفت‌وآمد به همراه ندارد.**\n\n"
-            f"⚠️ کوچه‌باغ عمارت فوق‌العاده باریک است و جای پارک فقط برای ۱۳ خودرو در نظر گرفته شده است."
+            f"📍 حرکت رأس ساعت ۱۸:۰۰ به سمت خانزنیان."
         )
         await callback.message.answer(
             preassigned_msg,
@@ -368,12 +366,12 @@ async def cb_car_status(callback: CallbackQuery, state: FSMContext):
         pass_str = "، ".join(other_passengers) if other_passengers else "در حال تکمیل ظرفیت ۴ نفره"
 
         confirm_text = (
-            f"🎉 **هماهنگی همسفری شما در کاروان صدرا انجام شد!**\n\n"
+            f"🎉 **هماهنگی همسفری شما در کاروان انجام شد!**\n\n"
             f"🔢 **شماره خودرو:** خودروی شماره {car_num}\n"
             f"🚘 **راننده خودرو:** {driver_contact}\n"
             f"👥 **سایر همسفران:** {pass_str}\n"
-            f"📍 **زمان و مکان تجمع:** پنجشنبه ۷ آبان — ساعت ۱۷:۳۰ رأس ورودی صدرا\n\n"
-            f"💡 شما به عنوان سرنشین در این خودرو قرار گرفتید تا ظرفیت ۴ نفره خودرو تکمیل شود."
+            f"📍 **زمان و مکان تجمع:** پنجشنبه ۲۹ اکتبر — حرکت رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n\n"
+            f"💡 شما به عنوان سرنشین در این خودرو قرار گرفتید تا ظرفیت خودرو تکمیل شود."
         )
 
         await callback.message.answer(confirm_text)

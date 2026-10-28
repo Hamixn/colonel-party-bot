@@ -37,7 +37,7 @@ async def set_bot_commands(bot: Bot):
     commands = [
         BotCommand(command="start", description="🚪 ورود به عمارت و دریافت کارت دعوت"),
         BotCommand(command="card", description="🎴 مشاهده کارت دعوت و کد روح من"),
-        BotCommand(command="carpool", description="🚗 مشخصات خودرو و راننده در کاروان صدرا"),
+        BotCommand(command="carpool", description="🚗 مشخصات خودرو و همسفران کاروان"),
         BotCommand(command="tape", description="🎙 نوار کاست صوتی شماره ۷ سرهنگ (۱۳۵۶)"),
         BotCommand(command="mission", description="📜 طومار و ماموریت مخفی نفوذ (مصونیت)"),
         BotCommand(command="lantern", description="🔴 فانوس سرخ دیجیتال (تنها نور مجاز)"),

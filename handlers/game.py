@@ -367,7 +367,7 @@ async def cmd_team(message: Message):
     if not team_num:
         await message.answer(
             "⏳ **تیم‌های حیاط هنوز نهایی نشده‌اند.**\n"
-            "تیم‌بندی‌های حیاط در ساعت ۰۰:۳۰ بامداد هم‌زمان با خاموشی و آغاز بازی اعلام خواهد شد."
+            "تیم‌بندی‌های حیاط در ساعت ۲۴:۰۰ هم‌زمان با خاموشی و آغاز بازی اعلام خواهد شد."
         )
         return
 
@@ -382,7 +382,7 @@ async def cmd_team(message: Message):
     if guest.get("is_traitor") == 1:
         traitor_text = (
             "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
-            "هدف تو این است که تیمت در طبقه دوم کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید! "
+            "هدف تو این است که تیمت در اتاق عمارت کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید! "
             "سعی کن در تاریکی صدای تله‌ها را دربیاوری یا تیمت را قانع کنی که کلمه دوم رمز «مرگ» است نه «سایه»!"
         )
 
@@ -486,7 +486,7 @@ async def cb_chk_team(callback: CallbackQuery):
 
     team_num = guest.get("team_number")
     if not team_num:
-        await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۰۰:۳۰ اعلام خواهد شد.")
+        await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۲۴:۰۰ اعلام خواهد شد.")
         return
 
     teammates = await database.get_team_members(team_num)
@@ -499,7 +499,7 @@ async def cb_chk_team(callback: CallbackQuery):
     if guest.get("is_traitor") == 1:
         traitor_text = (
             "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
-            "هدف تو این است که تیمت در طبقه دوم کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید!"
+            "هدف تو این است که تیمت در اتاق عمارت کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید!"
         )
 
     msg = (
@@ -540,9 +540,10 @@ async def cb_rules_midnight(event: Message | CallbackQuery):
     await target.answer(texts.MIDNIGHT_RULES_BRIEFING, reply_markup=keyboards.midnight_action_kb())
 
 @router.message(Command("carpool"))
+@router.message(F.text == "🚗 کاروان")
 @router.message(F.text == "🚗 کاروان صدرا")
 async def cmd_carpool(message: Message):
-    """Displays guest's assigned car in the 13-car convoy with fellow passengers and driver's Telegram contact."""
+    """Displays guest's assigned car in the convoy with fellow passengers and driver's Telegram contact."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start ثبت‌نام کنید.")
@@ -562,13 +563,13 @@ async def cmd_carpool(message: Message):
     seats_info = f"({seats_left} صندلی خالی تا سقف ۴ نفر)" if seats_left > 0 else "(ظرفیت ۴ نفره تکمیل است)"
 
     await message.answer(
-        f"🚗 **اطلاعات خودروی شما در کاروان ۱۳ تایی صدرا:**\n\n"
+        f"🚗 **اطلاعات خودروی شما در کاروان:**\n\n"
         f"🔢 **شماره خودرو:** خودروی شماره {car_num} {seats_info}\n"
         f"🚘 **راننده خودرو:** {driver_contact}\n"
         f"👥 **همسفران شما در این خودرو:** {pass_str}\n"
         f"👤 **وضعیت شما:** {car_type}\n"
-        f"📍 **زمان و مکان تجمع:** پنجشنبه ۷ آبان — ساعت ۱۷:۳۰ رأس ورودی صدرا\n\n"
-        f"⛔️ **یادآوری مهم:** دروازه‌ی عمارت از ساعت ۱۸:۱۵ تا ۲۴:۰۰ قفل خواهد بود و خروج زودهنگام امکان‌پذیر نیست."
+        f"📍 **زمان و مکان تجمع:** پنجشنبه ۲۹ اکتبر — حرکت رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n\n"
+        f"⛔️ **یادآوری مهم:** دروازه‌ی عمارت از ساعت ۱۸:۴۵ تا ۲۴:۰۰ قفل خواهد بود و خروج زودهنگام امکان‌پذیر نیست."
     )
 
 @router.message(Command("graveyard"))

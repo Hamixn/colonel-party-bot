@@ -149,7 +149,7 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
                 KeyboardButton(text="🩸 تسخیر قربانی (شکار)")
             ])
         kb_rows.append([
-            KeyboardButton(text="🚗 کاروان صدرا"),
+            KeyboardButton(text="🚗 کاروان"),
             KeyboardButton(text="🎙 نوار کاست سرهنگ")
         ])
         kb_rows.append([
@@ -162,7 +162,7 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
             KeyboardButton(text="💡 روشن کردن نور حیات باغ")
         ])
         kb_rows.append([
-            KeyboardButton(text="🚗 کاروان صدرا"),
+            KeyboardButton(text="🚗 کاروان"),
             KeyboardButton(text="🎙 نوار کاست سرهنگ")
         ])
         kb_rows.append([

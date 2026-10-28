@@ -173,9 +173,9 @@ def generate_invitation_card(
         y += 50
         draw_centered_text(draw, "THE HUNTER'S PREY", y, font_subrole, (240, 90, 90), width, is_persian=False)
         y += 48
-        draw_centered_text(draw, "⚠️ طومار و ماموریت مخفی: در ربات تلگرام (ساعت ۱۸:۰۰)", y, font_note, (255, 205, 205), width, is_persian=True)
+        draw_centered_text(draw, "⚠️ طومار و ماموریت مخفی: در ربات تلگرام (ساعت ۱۹:۳۰)", y, font_note, (255, 205, 205), width, is_persian=True)
         y += 40
-        draw_centered_text(draw, "ماموریت: بقا، کشف طلسم‌ها و نجات از دست ۵ شکارچی", y, font_note, dim_white, width, is_persian=True)
+        draw_centered_text(draw, "ماموریت: بقا، کشف طلسم‌ها و نجات از دست ۳ تسخیرشده", y, font_note, dim_white, width, is_persian=True)
     else:
         draw_centered_text(draw, "نقش: بلوند بی‌گناه", y, font_role, blonde_pink, width, is_persian=True)
         y += 50
@@ -196,9 +196,7 @@ def generate_invitation_card(
     y += 38
 
     # 5. Timeline Footer
-    draw_centered_text(draw, "پنجشنبه ۷ آبان | تجمع: ۱۷:۳۰ صدرا | ورود: ۱۸:۱۵", y, font_timeline, silver, width, is_persian=True)
-    y += 36
-    draw_centered_text(draw, "شروع مهمانی: ۱۹:۱۵ | باز شدن درها: ۲۴:۰۰ | بازی حیاط: ۰۰:۳۰", y, font_timeline, silver, width, is_persian=True)
+    draw_centered_text(draw, "۲۹ اکتبر | حرکت: ۱۸:۰۰ | ورود به عمارت: ۱۸:۴۵ | خاموشی: ۲۴:۰۰", y, font_timeline, silver, width, is_persian=True)
     y += 55
 
     # 6. Unique Serial Code Badge (SOUL-#01)
