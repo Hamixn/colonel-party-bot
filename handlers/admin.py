@@ -44,6 +44,8 @@ async def cmd_admin_help(message: Message):
         "🗝 `/reveal_traitors` — اعلام عمومی و افشای ۳ تسخیرشده و خائنین\n"
         "🚗 `/assign_carpool` — نمایش وضعیت کاروان خودروها\n"
         "📢 `/broadcast <متن>` — ارسال پیام همگانی به تمام مهمانان\n"
+        "⚠️ `/crisis_broadcast` — ارسال پیام بحران پیش از نیمه‌شب (ساعت ۲۳:۵۰)\n"
+        "🕯 `/trigger_darkroom` — کلید زدن سکانس نهایی تاریکخانه (ساعت ۰۱:۱۰ بامداد)\n"
         "🕯 `/broadcast_players <متن>` — ارسال پیام اختصاصی به گروه بازیکنان\n"
         "👱‍♀️ `/broadcast_blondes <متن>` — ارسال پیام اختصاصی به گروه بلوندهای بی‌گناه\n"
         "🔓 `/unlock_missions` — باز کردن دستی ماموریت‌های مخفی\n"
@@ -419,6 +421,29 @@ async def cmd_assign_carpool(message: Message):
         summary.append(f"🚘 **خودروی {c_num}:** راننده: {driver} | همسفران: {pass_str}")
 
     await message.answer("\n".join(summary))
+
+@router.message(Command("crisis_broadcast"))
+@router.message(Command("broadcast_crisis"))
+async def cmd_crisis_broadcast(message: Message, bot: Bot):
+    """Broadcasts the 23:50 Pre-Midnight Crisis text to all registered guests."""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    text = texts.CRISIS_BROADCAST_TEXT
+    success, failed = await send_broadcast(bot, text)
+    await message.answer(f"📢 پیام بحران پیش از نیمه‌شب (۲۳:۵۰) برای {success} نفر ارسال شد. (خطا: {failed})")
+
+@router.message(Command("trigger_darkroom"))
+async def cmd_trigger_darkroom(message: Message, bot: Bot):
+    """Triggers the 01:10 AM Final Darkroom Sequence to all players."""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    text = texts.DARKROOM_FINAL_PROMPT
+    success, failed = await send_broadcast(bot, text, role_filter="role_player")
+    await message.answer(f"🕯 سکانس نهایی تاریکخانه برای {success} بازرس ارسال شد. (خطا: {failed})")
 
 @router.message(Command("unlock_missions"))
 async def cmd_unlock_missions(message: Message):

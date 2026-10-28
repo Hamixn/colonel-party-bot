@@ -23,10 +23,10 @@ TAPE_VOICE_FILE_ID = "AwACAgEAAxkDAAPDat86rJlyDDgFkfZVQRQhnPOnQxoAAn0IAALxQwABR1
 LANTERN_PHOTO_FILE_ID = "AgACAgEAAxkDAAOVat7mnZbQOE2oLNWQTFy0mWEbNVIAAhANaxvxQ_hGMirKbWdvIo4BAAMCAAN5AAM9BA"
 
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
-MISSION_UNLOCK_TIME = datetime(2026, 10, 29, 18, 0, 0, tzinfo=TEHRAN_TZ)
+MISSION_UNLOCK_TIME = datetime(2026, 10, 29, 19, 30, 0, tzinfo=TEHRAN_TZ)
 
 async def is_mission_unlocked() -> bool:
-    """Checks if missions are unlocked (past 29 Oct 18:00 Tehran or forced by admin)."""
+    """Checks if missions are unlocked (past 29 Oct 19:30 Tehran or forced by admin)."""
     forced = await database.get_game_state("force_unlock_missions", "0")
     if forced == "1":
         return True
@@ -34,7 +34,7 @@ async def is_mission_unlocked() -> bool:
     return now >= MISSION_UNLOCK_TIME
 
 async def can_change_role() -> bool:
-    """Checks if guests can still change their role (before 29 Oct 18:00 Tehran)."""
+    """Checks if guests can still change their role (before 29 Oct 19:30 Tehran)."""
     forced_lock = await database.get_game_state("force_lock_roles", "0")
     if forced_lock == "1":
         return False
@@ -66,9 +66,9 @@ async def cmd_tape(message: Message):
     await message.answer(game.COLONEL_CASSETTE_TRANSCRIPT)
 
 @router.message(Command("mission"))
-@router.message(F.text.in_(["📜 طومار و ماموریت مخفی", "📜 ماموریت مخفی"]))
+@router.message(F.text.in_(["📜 طومار و ماموریت مخفی", "📜 ماموریت مخفی", "📜 ثبت آلیبای و ماموریت"]))
 async def cmd_mission(message: Message):
-    """Displays the player's secret social mission for party immunity, unlocked at 29 Oct 18:00 Tehran."""
+    """Displays the player's secret social mission for party alibi/evidence logging (19:30 to 23:50)."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
@@ -76,13 +76,13 @@ async def cmd_mission(message: Message):
 
     if guest.get("role") != "role_player":
         await message.answer(
-            "🥂 **مخصوص بلوندهای بی‌گناه:**\n\n"
-            "شما وارد بازی خطرناک نخواهید شد و نیازی به ماموریت ندارید!\n"
-            "وظیفه شما لذت بردن از رقص، نوشیدنی، تماشای فیلم در سالن گرم، و تماشای فرار دیگران است."
+            "🥂 **مخصوص همراهان مهمانی (بلوندهای بی‌گناه):**\n\n"
+            "حضور در پرونده و ماموریت‌های تحقیق کاملاً اختیاری است.\n"
+            "شما آزادی کامل دارید تا از موسیقی، رقص، پذیرایی و فضای هالووین لذت ببرید."
         )
         return
 
-    # Check if missions are unlocked (29 October at 18:00 Tehran)
+    # Check if missions are unlocked (19:30 to 23:50)
     if not await is_mission_unlocked():
         now = datetime.now(TEHRAN_TZ)
         diff = MISSION_UNLOCK_TIME - now
@@ -92,32 +92,32 @@ async def cmd_mission(message: Message):
         countdown_str = f"{hours} ساعت و {minutes} دقیقه" if hours > 0 else f"{minutes} دقیقه"
 
         await message.answer(
-            f"⏳ **طومار مخفی هنوز مُهر و موم است!**\n\n"
-            f"🔒 ماموریت‌های مخفی نفوذ و مصونیت در عمارت، رأس ساعت **۱۸:۰۰ روز پنجشنبه ۲۹ اکتبر (۷ آبان)** "
-            f"به وقت شیراز، به صورت خودکار در همین صفحه رمزگشایی و گشوده خواهند شد.\n\n"
-            f"⏱ **زمان باقی‌مانده تا گشایش طومارها:** {countdown_str}\n\n"
-            f"💡 *تا آن ساعت هویت و نقش خود را از دیگران مخفی نگه دارید...*"
+            f"⏳ **پرونده‌ی بازی اجتماعی هنوز بازگشایی نشده است!**\n\n"
+            f"🔒 بازی اجتماعی و ثبت آلیبای (۱۹:۳۰ تا ۲۳:۵۰)، رأس ساعت **۱۹:۳۰** "
+            f"به صورت خودکار در همین بخش فعال خواهد شد.\n\n"
+            f"⏱ **زمان باقی‌مانده:** {countdown_str}\n\n"
+            f"💡 *این ماموریت‌ها فعالیتی پس‌زمینه و کاملاً اختیاری برای ثبت مدارک هستند.*"
         )
         return
 
     mission_id = guest.get("social_mission_id", 1)
     mission_text = game.SOCIAL_MISSIONS.get(mission_id, game.SOCIAL_MISSIONS[1])
     is_immune = guest.get("is_immune", 0)
-    got_stickered = guest.get("got_stickered", 0)
 
-    status_str = "🛡 **وضعیت شما:** مصونیت فعال است (غیرقابل تسخیر)" if is_immune else (
-        "💀 **وضعیت شما:** استیکر خورده و تسخیر شده!" if got_stickered else "⚠️ **وضعیت شما:** آسیب‌پذیر در برابر ۵ تسخیرشده!"
-    )
+    if is_immune:
+        status_str = texts.ALIBI_LOGGED_BADGE
+    else:
+        status_str = "⏳ **وضعیت شما:** آلیبای شما هنوز در پرونده ثبت نشده است."
 
     text = (
-        f"📜 **ماموریت اجتماعی شما برای فعال‌سازی طلسم مصونیت:**\n\n"
-        f"🎯 **ماموریت مخفی شما (لمس کنید تا نمایان شود):**\n"
+        "📜 **بازی اجتماعی و ثبت آلیبای (فعالیت پس‌زمینه و کاملاً اختیاری — ۱۹:۳۰ تا ۲۳:۵۰):**\n\n"
+        f"🎯 **روایت ماموریت شما جهت ثبت حضور:**\n"
         f"||{mission_text}||\n\n"
         f"{status_str}\n\n"
-        f"💡 به محض انجام این ماموریت در سالن مهمانی، دکمه‌ی زیر را لمس کنید تا کارت سبز طلسم مصونیت صادر شود."
+        "💡 پس از انجام این گفت‌وگو در سالن، دکمه‌ی زیر را لمس کرده و نام شاهد یا زمان حضور خود را ثبت نمایید."
     )
 
-    kb = keyboards.social_mission_player_kb(is_immune=bool(is_immune), got_stickered=bool(got_stickered))
+    kb = keyboards.social_mission_player_kb(is_immune=bool(is_immune), got_stickered=False)
     await message.answer(text, reply_markup=kb)
 
 @router.message(Command("change_role"))
@@ -213,31 +213,15 @@ async def cb_switch_to_player(callback: CallbackQuery):
 
 @router.callback_query(F.data == "claim_immunity")
 async def cb_claim_immunity(callback: CallbackQuery):
-    """Awards immunity to player upon mission completion and sends green immunity shield image."""
+    """Awards alibi / evidence badge to player upon social mission completion."""
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
         await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
         return
 
-    if guest.get("is_immune") == 1:
-        await callback.answer("مصونیت شما قبلاً ثبت و صادر شده است!", show_alert=True)
-        return
-
     await database.set_mission_completed(callback.from_user.id)
-    await callback.answer("🎉 طلسم مصونیت شما فعال شد!", show_alert=True)
-
-    # Generate bright green immunity screen
-    pin = guest.get("soul_pin") or f"{(guest.get('serial_number', 1) * 73 + 137) % 900 + 100}"
-    card_buf = card_generator.generate_immunity_card(guest["full_name"], pin)
-    photo_file = BufferedInputFile(card_buf.getvalue(), filename="immunity_shield.png")
-
-    caption = (
-        "🛡 **[طلسم مصونیت شما صادر و فعال شد!]**\n\n"
-        "تبریک! شما ماموریت اجتماعی خود را به انجام رساندید.\n"
-        "این تصویر سبز را به صورت تمام‌صفحه به افراد تسخیرشده نشان دهید.\n"
-        "هیچ تسخیرشده‌ای حق چسباندن استیکر به شما را ندارد!"
-    )
-    await callback.message.answer_photo(photo=photo_file, caption=caption)
+    await callback.answer("📋 آلیبای شما ثبت شد!", show_alert=True)
+    await callback.message.answer(texts.ALIBI_LOGGED_BADGE)
 
 @router.callback_query(F.data == "got_stickered")
 async def cb_got_stickered(callback: CallbackQuery):
@@ -259,12 +243,12 @@ async def cmd_solve(message: Message, bot: Bot):
         return
 
     if guest.get("role") != "role_player":
-        await message.answer("🍿 شما بلوند بی‌گناه هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
+        await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
         return
 
     team_num = guest.get("team_number")
     if not team_num or team_num < 1 or team_num > 4:
-        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید یا بازی نیمه‌شب هنوز کلید نخورده است.")
+        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید یا فاز کشف مدارک هنوز کلید نخورده است.")
         return
 
     if not user_answer:
@@ -274,10 +258,10 @@ async def cmd_solve(message: Message, bot: Bot):
         r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
 
         status_lines = [
-            f"🔍 **وضعیت معماهای {t_name}:**\n",
-            f"• پاکت اول: {'✅ حل شده' if r1_solved else '⏳ هنوز حل نشده'}",
-            f"• پاکت دوم: {'✅ حل شده' if r2_solved else '⏳ هنوز حل نشده'}",
-            "\nبرای ارسال پاسخ معما بنویسید:",
+            f"🔍 **وضعیت مدارک {t_name}:**\n",
+            f"• پاکت اول: {'✅ مدرک ثبت شده' if r1_solved else '⏳ هنوز ثبت نشده'}",
+            f"• پاکت دوم: {'✅ مدرک ثبت شده' if r2_solved else '⏳ هنوز ثبت نشده'}",
+            "\nبرای ثبت پاسخ معما بنویسید:",
             "`/solve <پاسخ شما>`"
         ]
         await message.answer("\n".join(status_lines))
@@ -288,7 +272,7 @@ async def cmd_solve(message: Message, bot: Bot):
 
     if status == "already_both_solved":
         await message.answer(
-            "🔓 **تیم شما قبلاً هر دو معما را حل کرده است!**\n\n"
+            "🔓 **تیم شما قبلاً هر دو مدرک را ثبت کرده است!**\n\n"
             + game.CLIMAX_INSTRUCTIONS
         )
         return
@@ -296,17 +280,15 @@ async def cmd_solve(message: Message, bot: Bot):
     if status == "already_solved":
         r_num = res.get("riddle_num", 1)
         await message.answer(
-            f"⚠️ **معمای شماره {r_num} قبلاً توسط تیم شما حل شده است!**\n"
-            f"لطفاً پاکت دیگر را در باغ پیدا کنید و پاسخ آن را ارسال نمایید."
+            res.get("response_text", f"⚠️ مدرک پاکت شماره {r_num} قبلاً توسط تیم شما ثبت شده است!")
         )
         return
 
     if status == "riddle_solved":
         r_num = res.get("riddle_num", 1)
-        await message.answer(
-            f"🎉 **معمای شماره {r_num} با موفقیت حل شد!**\n\n"
-            f"عالی بود! حالا پاکت دوم را در باغ پیدا کنید و پاسخ آن را با `/solve <پاسخ>` ارسال نمایید."
-        )
+        resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
+        await message.answer(resp_text)
+
         # Notify other teammates
         teammates = await database.get_team_members(team_num)
         for tm in teammates:
@@ -314,39 +296,49 @@ async def cmd_solve(message: Message, bot: Bot):
                 try:
                     await bot.send_message(
                         chat_id=tm["telegram_id"],
-                        text=f"⚡️ یکی از هم‌تیمی‌های شما معمای شماره {r_num} را با موفقیت حل کرد! پاکت بعدی را پیدا کنید."
+                        text=f"⚡️ یکی از هم‌تیمی‌های شما مدرک پاکت شماره {r_num} را ثبت کرد:\n\n{resp_text}"
                     )
                 except Exception:
                     pass
         return
 
     if status == "both_solved":
-        # Climax unlocked for the whole team!
+        r_num = res.get("just_solved", 2)
+        resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
+        await message.answer(resp_text)
+
+        # Notify team members that all their clues are recorded
         teammates = await database.get_team_members(team_num)
         for tm in teammates:
             if tm.get("telegram_id"):
                 try:
                     await bot.send_message(
                         chat_id=tm["telegram_id"],
-                        text=game.CLIMAX_INSTRUCTIONS
+                        text=(
+                            f"📁 **هر دو مدرک تیم شما با موفقیت ثبت شد!**\n\n"
+                            "شواهد را به میز مرکزی ببرید و منتظر بررسی مدارک سایر تیم‌ها باشید."
+                        )
                     )
                 except Exception:
                     pass
+
+        # Check if all 3 teams have completed all their evidences
+        if res.get("all_teams_solved"):
+            players = await database.get_players()
+            for p in players:
+                if p.get("telegram_id"):
+                    try:
+                        await bot.send_message(
+                            chat_id=p["telegram_id"],
+                            text=texts.DARKROOM_FINAL_PROMPT
+                        )
+                    except Exception:
+                        pass
         return
 
     if status == "wrong":
-        # Wrong answer warning + audio trap
-        if AUDIO_TAPE_PATH.exists():
-            try:
-                audio_file = FSInputFile(str(AUDIO_TAPE_PATH), filename="colonel_warning.wav")
-                await message.answer_voice(
-                    voice=audio_file,
-                    caption=texts.WRONG_ANSWER_TRAP
-                )
-                return
-            except Exception:
-                pass
-        await message.answer(texts.WRONG_ANSWER_TRAP)
+        resp_text = res.get("response_text", texts.WRONG_ANSWER_TRAP)
+        await message.answer(resp_text)
 
 @router.message(Command("team"))
 @router.message(F.text == "🔦 تیم من در حیاط")

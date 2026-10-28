@@ -3,6 +3,7 @@ import random
 from typing import Optional, List, Dict, Any
 from config import DB_PATH
 import guest_list
+import game
 
 async def init_db() -> None:
     """Initializes the SQLite database schema with full game mechanics."""
@@ -437,13 +438,43 @@ async def get_team_members(team_number: int) -> List[Dict[str, Any]]:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
+PERSIAN_TO_LATIN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
 def _normalize_text(text: str) -> str:
     """Normalizes Arabic/Persian characters and digits for robust answer matching."""
+    if not text:
+        return ""
     t = text.strip().lower()
-    t = t.replace("ي", "ی").replace("ك", "ک").replace("آ", "ا")
-    for p in [".", ",", "!", "?", "،", "؛", "-", "_", ":"]:
+    t = t.replace("ي", "ی").replace("ك", "ک").replace("آ", "ا").replace("ة", "ه")
+    t = t.translate(PERSIAN_TO_LATIN_DIGITS)
+    for p in [".", ",", "!", "?", "،", "؛", "-", "_", ":", "/", "\\", "'", '"', "(", ")", "[", "]", "{", "}"]:
         t = t.replace(p, "")
     return t.strip()
+
+def _matches_candidate(user_text: str, candidate: str) -> bool:
+    """Matches user input against candidate answer key, ensuring digit keys like '5' don't match '3' or '1356'."""
+    user_norm = _normalize_text(user_text)
+    cand_norm = _normalize_text(candidate)
+    if not user_norm or not cand_norm:
+        return False
+    if user_norm == cand_norm:
+        return True
+    tokens = user_norm.split()
+    if cand_norm in tokens:
+        return True
+    if len(cand_norm) > 1 and cand_norm in user_norm:
+        if not cand_norm.isdigit() or not any(c.isdigit() for c in user_norm if c not in cand_norm):
+            return True
+    return False
+
+async def is_all_evidence_collected() -> bool:
+    """Checks if Team 1, Team 2, and Team 3 have each solved both their riddles."""
+    for team_num in [1, 2, 3]:
+        r1 = (await get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+        r2 = (await get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+        if not (r1 and r2):
+            return False
+    return True
 
 async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
     """
@@ -451,7 +482,6 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
     Team 1: Riddle 1 = خون | Riddle 2 = 1356
     Team 2: Riddle 1 = سایه | Riddle 2 = 2910
     Team 3: Riddle 1 = سکوت | Riddle 2 = 5
-    Team 4: Riddle 1 = آینه | Riddle 2 = 12 (or 2400)
     """
     guest = await get_guest_by_telegram_id(telegram_id)
     if not guest:
@@ -481,42 +511,91 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
     }
 
     answers = team_riddle_answers.get(team_num, {})
-    user_norm = _normalize_text(answer)
 
     r1_solved = (await get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
     r2_solved = (await get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
 
     if r1_solved and r2_solved:
-        return {"status": "already_both_solved", "team_number": team_num}
+        return {
+            "status": "already_both_solved",
+            "team_number": team_num,
+            "response_text": game.CLIMAX_INSTRUCTIONS
+        }
 
     # Check match with Riddle 1
-    match_r1 = any(_normalize_text(cand) in user_norm or user_norm == _normalize_text(cand) for cand in answers.get(1, []))
+    match_r1 = any(_matches_candidate(answer, cand) for cand in answers.get(1, []))
     # Check match with Riddle 2
-    match_r2 = any(_normalize_text(cand) in user_norm or user_norm == _normalize_text(cand) for cand in answers.get(2, []))
+    match_r2 = any(_matches_candidate(answer, cand) for cand in answers.get(2, []))
 
     if match_r1:
         if r1_solved:
-            return {"status": "already_solved", "riddle_num": 1, "team_number": team_num}
+            return {
+                "status": "already_solved",
+                "riddle_num": 1,
+                "team_number": team_num,
+                "response_text": "⚠️ این مدرک (معمای شماره ۱) قبلاً توسط تیم شما ثبت شده است!"
+            }
         await set_game_state(f"team_{team_num}_riddle_1", "1")
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("UPDATE guests SET riddle_1_solved = 1 WHERE team_number = ?", (team_num,))
             await db.commit()
+
+        resp_text = game.RIDDLE_RESPONSES.get((team_num, 1), "✅ مدرک با موفقیت ثبت شد.")
+        all_collected = await is_all_evidence_collected()
         if r2_solved:
-            return {"status": "both_solved", "team_number": team_num, "just_solved": 1}
-        return {"status": "riddle_solved", "riddle_num": 1, "team_number": team_num}
+            return {
+                "status": "both_solved",
+                "team_number": team_num,
+                "just_solved": 1,
+                "riddle_num": 1,
+                "response_text": resp_text,
+                "all_teams_solved": all_collected
+            }
+        return {
+            "status": "riddle_solved",
+            "riddle_num": 1,
+            "team_number": team_num,
+            "response_text": resp_text,
+            "all_teams_solved": all_collected
+        }
 
     if match_r2:
         if r2_solved:
-            return {"status": "already_solved", "riddle_num": 2, "team_number": team_num}
+            return {
+                "status": "already_solved",
+                "riddle_num": 2,
+                "team_number": team_num,
+                "response_text": "⚠️ این مدرک (معمای شماره ۲) قبلاً توسط تیم شما ثبت شده است!"
+            }
         await set_game_state(f"team_{team_num}_riddle_2", "1")
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("UPDATE guests SET riddle_2_solved = 1 WHERE team_number = ?", (team_num,))
             await db.commit()
-        if r1_solved:
-            return {"status": "both_solved", "team_number": team_num, "just_solved": 2}
-        return {"status": "riddle_solved", "riddle_num": 2, "team_number": team_num}
 
-    return {"status": "wrong", "team_number": team_num}
+        resp_text = game.RIDDLE_RESPONSES.get((team_num, 2), "✅ مدرک با موفقیت ثبت شد.")
+        all_collected = await is_all_evidence_collected()
+        if r1_solved:
+            return {
+                "status": "both_solved",
+                "team_number": team_num,
+                "just_solved": 2,
+                "riddle_num": 2,
+                "response_text": resp_text,
+                "all_teams_solved": all_collected
+            }
+        return {
+            "status": "riddle_solved",
+            "riddle_num": 2,
+            "team_number": team_num,
+            "response_text": resp_text,
+            "all_teams_solved": all_collected
+        }
+
+    return {
+        "status": "wrong",
+        "team_number": team_num,
+        "response_text": game.WRONG_ANSWER_TEXT
+    }
 
 async def get_reveal_manifest() -> Dict[str, Any]:
     """Returns hunters and traitors for the 02:00 AM reveal."""
