@@ -28,13 +28,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Telegram Bot
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          ADMIN_USER_ID: ${{ secrets.ADMIN_USER_ID || '102725917' }}
-          PLAYER_CAP: '20'
         run: |
-          if [ -z "$BOT_TOKEN" ]; then
-            echo "::error::BOT_TOKEN secret is not set! Please add BOT_TOKEN in Repository Settings -> Secrets and variables -> Actions"
-            exit 1
+          TOKEN="${{ secrets.BOT_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="8732768966:AAGThitIZG2IddxiyokS0PGCn_m_fHr-gRo"
           fi
+          export BOT_TOKEN="$TOKEN"
+          export ADMIN_USER_ID="${{ secrets.ADMIN_USER_ID || '102725917' }}"
+          export PLAYER_CAP="20"
+          echo "🚀 Launching Colonel Party Bot on GitHub Actions Cloud..."
           python bot.py
