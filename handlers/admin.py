@@ -324,7 +324,7 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
 
     teams = await database.start_midnight_game()
     if not teams:
-        await message.answer("⚠️ بازیکن ثبت‌شده‌ای برای شروع بازی نیمه‌شب وجود ندارد.")
+        await message.answer("⚠️ برای شروع رقابت کامل به ۱۲ تا ۱۵ بازرس و یک نقش‌آفرین نادر نیاز است (حداقل ۱۳ نفر در گروه نقش‌آفرینان).")
         return
 
     red_lantern_path = Path("assets/images/red_lantern.jpg")
