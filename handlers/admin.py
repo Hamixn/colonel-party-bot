@@ -318,6 +318,10 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
+    if await database.get_game_state("midnight_game_started", "0") == "1":
+        await message.answer("ℹ️ بازی نیمه‌شب قبلاً آغاز شده است. برای بررسی وضعیت از /team و برای راهنما از /hint استفاده کنید.")
+        return
+
     teams = await database.start_midnight_game()
     if not teams:
         await message.answer("⚠️ بازیکن ثبت‌شده‌ای برای شروع بازی نیمه‌شب وجود ندارد.")
@@ -404,6 +408,10 @@ async def cmd_reveal_traitors(message: Message, bot: Bot):
     """
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    if await database.get_game_state("reveal_triggered_at", ""):
+        await message.answer("ℹ️ افشای نهایی قبلاً انجام شده است؛ پیام عمومی تکرار نشد.")
         return
 
     data = await database.get_reveal_manifest()
