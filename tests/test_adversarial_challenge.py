@@ -82,6 +82,8 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.unique_id = uuid.uuid4().hex[:10]
         self.test_db_file = Path(f"test_adv_{self.unique_id}_{self._testMethodName}.db")
         self.orig_db_path = database.DB_PATH
+        self.orig_admin_id = config.ADMIN_USER_ID
+        config.ADMIN_USER_ID = 999000111
         database.DB_PATH = self.test_db_file
         database._riddle_lock = asyncio.Lock()
 
@@ -105,6 +107,7 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         database.DB_PATH = self.orig_db_path
+        config.ADMIN_USER_ID = self.orig_admin_id
         await asyncio.sleep(0.01)
         if self.test_db_file.exists():
             for _ in range(5):
