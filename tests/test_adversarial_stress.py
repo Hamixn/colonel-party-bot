@@ -101,6 +101,7 @@ class BaseAdversarialTestCase(unittest.IsolatedAsyncioTestCase):
                 VALUES (?, ?, ?, ?, ?, ?)
             """, all_guests)
             await db.commit()
+        await database.set_game_state("game_phase", "midnight_investigation")
 
     async def asyncTearDown(self):
         database.DB_PATH = self.orig_db_path
