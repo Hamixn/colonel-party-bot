@@ -336,6 +336,11 @@ async def cmd_solve(message: Message, bot: Bot):
                         pass
         return
 
+    if status == "other_team_riddle":
+        resp_text = res.get("response_text", texts.OTHER_TEAM_CODE_ALERT)
+        await message.answer(resp_text)
+        return
+
     if status == "wrong":
         resp_text = res.get("response_text", texts.WRONG_ANSWER_TRAP)
         await message.answer(resp_text)

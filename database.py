@@ -591,6 +591,18 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
             "all_teams_solved": all_collected
         }
 
+    # Check if answer matches another team's riddle (cross-team submission)
+    for other_team, other_riddles in team_riddle_answers.items():
+        if other_team != team_num:
+            for r_idx, cands in other_riddles.items():
+                if any(_matches_candidate(answer, cand) for cand in cands):
+                    return {
+                        "status": "other_team_riddle",
+                        "team_number": team_num,
+                        "other_team": other_team,
+                        "response_text": game.OTHER_TEAM_CODE_ALERT
+                    }
+
     return {
         "status": "wrong",
         "team_number": team_num,

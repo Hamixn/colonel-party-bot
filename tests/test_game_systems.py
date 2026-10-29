@@ -44,6 +44,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(database._normalize_text("سايه"), "سایه")
         self.assertEqual(database._normalize_text("  خون!  "), "خون")
         self.assertEqual(database._normalize_text("سكوت..."), "سکوت")
+        self.assertEqual(database._normalize_text("  ۵  "), "5")
 
     async def test_riddle_answers_success_team_1(self):
         """Verifies Team 1 riddle keys: خون (1-A) and 1356/۱۳۵۶ (1-B)."""
@@ -53,7 +54,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_1a["riddle_num"], 1)
         self.assertEqual(
             res_1a["response_text"],
-            "✅ مدرک جسمانی ثبت شد. این گزارش و دکمه‌ی سردست نقره‌ای، روایت سقوط ساده را زیر سؤال می‌برد؛ اما برای اثبات مسئولیت یک فرد کافی نیست."
+            "✅ مدرک اول ثبت شد: لکهی خون لبهی استخر نشان میدهد سر آرش پیش از ورود به آب آسیب دیده؛ این حادثه سقوط اتفاقی نبوده است. پاکت دوم را برای کشف انگیزه باز کنید."
         )
 
         # 1-B: Persian digits ۱۳۵۶
@@ -62,7 +63,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_1b["riddle_num"], 2)
         self.assertEqual(
             res_1b["response_text"],
-            "✅ صفحه‌ی حساب‌ها ثبت شد. این مدرک به وجود انگیزه‌ی مالی اشاره دارد، اما هنوز به‌تنهایی قاتل را مشخص نمی‌کند."
+            "✅ مدرک دوم ثبت شد: برگهی دفتر مالی سال ۱۳۵۶ پرده از اختلاس پنهانی نادر وثوق برمیدارد. آرش در ساعت ۲۲:۰۵ متوجه این دزدی شده بود."
         )
 
     async def test_riddle_answers_success_team_2(self):
@@ -73,7 +74,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_2a["riddle_num"], 1)
         self.assertEqual(
             res_2a["response_text"],
-            "✅ تصویر ثبت شد. بازتاب در شیشه، حضور یک نفر را مطرح می‌کند؛ اما هویت او باید با مدرک دیگری تأیید شود."
+            "✅ مدرک اول ثبت شد: تصویر تاریکخانه تأیید شد. در شیشهی پشت سر مهمانان، بازتاب و سایهی مبهم فردی ثبت شده که خروجش از باغ یک دروغ بوده است."
         )
 
         # 2-B: Persian digits ۲۹۱۰
@@ -82,7 +83,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_2b["riddle_num"], 2)
         self.assertEqual(
             res_2b["response_text"],
-            "✅ زمان عکس (۲۲:۱۹) ثبت شد. نادر ادعا کرده بود پیش از ساعت ۲۲:۰۰ باغ را ترک کرده است. این تصویر، ادعای او را زیر سؤال می‌برد."
+            "✅ مدرک دوم ثبت شد: دفتر عکاس ساعت ۲۲:۱۹ (پنج دقیقه قبل از سقوط آرش) را نشان میدهد. نادر ادعا کرده بود ساعت ۲۲:۰۰ رفته، اما او در صحنهی جرم حضور داشته است!"
         )
 
     async def test_riddle_answers_success_team_3(self):
@@ -93,7 +94,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_3a["riddle_num"], 1)
         self.assertEqual(
             res_3a["response_text"],
-            "✅ شهادت ثبت شد. سکوت شاهدان، حقیقت را پنهان کرده بود؛ اما سکوت آنها به‌تنهایی اثبات گناهشان نیست."
+            "✅ مدرک اول ثبت شد: یادداشت شیرین نوری؛ شاهدان از ترس تهدیدهای نادر سکوت کردند و گریختند، اما او لحظهی درگیری ساعت ۲۲:۲۴ را دیده است."
         )
 
         # 3-B: Persian digit ۵
@@ -102,27 +103,75 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_3b["riddle_num"], 2)
         self.assertEqual(
             res_3b["response_text"],
-            "✅ فهرست افراد مرتبط کامل شد. اکنون باید مشخص کنید کدام فرد در عکس دیده می‌شود، انگیزه‌ی مالی دارد و ادعای غیبتش با زمان ثبت تصویر سازگار نیست."
+            "✅ مدرک دوم ثبت شد: ۵ عنصر کلیدی پرونده (۳ شاهد، ۱ سایه در شیشه، ۱ قربانی) تطبیق داده شدند. مدارک را به میز مرکزی ببرید!"
         )
+
+    async def test_cross_team_code_rejection(self):
+        """
+        Verifies that submitting another team's valid code is rejected
+        with the exact cross-team warning string.
+        """
+        expected_alert = "⚠️ این مدرک متعلق به پروندهی تیم دیگری است. پاکتهای مخصوص تیم خود را در حیاط بررسی کنید."
+
+        # Team 1 member sends Team 2's code ("سایه")
+        res_t1_cross = await database.check_team_riddle(101, "سایه")
+        self.assertEqual(res_t1_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t1_cross["response_text"], expected_alert)
+
+        # Team 1 member sends Team 3's code ("5")
+        res_t1_cross2 = await database.check_team_riddle(101, "5")
+        self.assertEqual(res_t1_cross2["status"], "other_team_riddle")
+        self.assertEqual(res_t1_cross2["response_text"], expected_alert)
+
+        # Team 2 member sends Team 1's code ("1356")
+        res_t2_cross = await database.check_team_riddle(102, "۱۳۵۶")
+        self.assertEqual(res_t2_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t2_cross["response_text"], expected_alert)
+
+        # Team 3 member sends Team 2's code ("2910")
+        res_t3_cross = await database.check_team_riddle(103, "۲۹۱۰")
+        self.assertEqual(res_t3_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t3_cross["response_text"], expected_alert)
+
+    async def test_idempotent_solves(self):
+        """
+        Verifies that resubmitting an already-solved code is completely idempotent
+        and does not trigger duplicate state progression.
+        """
+        # Solve Riddle 1
+        res1 = await database.check_team_riddle(101, "خون")
+        self.assertEqual(res1["status"], "riddle_solved")
+
+        # Resubmit Riddle 1
+        res1_dup = await database.check_team_riddle(101, "خون")
+        self.assertEqual(res1_dup["status"], "already_solved")
+        self.assertEqual(res1_dup["riddle_num"], 1)
+
+        # Solve Riddle 2
+        res2 = await database.check_team_riddle(101, "1356")
+        self.assertEqual(res2["status"], "both_solved")
+
+        # Resubmit when both are solved
+        res2_dup = await database.check_team_riddle(101, "1356")
+        self.assertEqual(res2_dup["status"], "already_both_solved")
+
+        res1_after_both = await database.check_team_riddle(101, "خون")
+        self.assertEqual(res1_after_both["status"], "already_both_solved")
 
     async def test_riddle_3b_rejection_of_3(self):
         """
         CRITICAL TEST: Verifies that '3' and '۳' are strictly REJECTED for Riddle 3-B
-        and DO NOT alter answer key '5'.
+        and returns the exact updated hint text.
         """
+        expected_hint = "❌ اطلاعات واردشده با اسناد این پاکت مطابقت ندارد. متن گزارش، سال، تاریخ یا شمارش افراد پرونده را مجدداً مرور کنید."
+
         res_fail_latin = await database.check_team_riddle(103, "3")
         self.assertEqual(res_fail_latin["status"], "wrong")
-        self.assertEqual(
-            res_fail_latin["response_text"],
-            "❌ پاسخ ثبت‌شده با مستندات پرونده همخوانی ندارد. شواهد داخل پاکت (واژه کلیدی گزارش، سال چهاررقمی، کد روز و ماه، یا مجموع ۵ فرد مرتبط با پرونده) را دوباره بررسی کنید."
-        )
+        self.assertEqual(res_fail_latin["response_text"], expected_hint)
 
         res_fail_persian = await database.check_team_riddle(103, "۳")
         self.assertEqual(res_fail_persian["status"], "wrong")
-        self.assertEqual(
-            res_fail_persian["response_text"],
-            "❌ پاسخ ثبت‌شده با مستندات پرونده همخوانی ندارد. شواهد داخل پاکت (واژه کلیدی گزارش، سال چهاررقمی، کد روز و ماه، یا مجموع ۵ فرد مرتبط با پرونده) را دوباره بررسی کنید."
-        )
+        self.assertEqual(res_fail_persian["response_text"], expected_hint)
 
     async def test_independent_team_state_isolation(self):
         """
@@ -165,31 +214,33 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game.ALIBI_LOGGED_BADGE, expected_badge)
 
     def test_narrative_text_compliance(self):
-        """Verifies exact narrative texts for Step 2 Part A, C, and E."""
-        # Part A: Grounded True-Crime text
-        self.assertIn("پرونده‌ی جنایی شماره‌ی ۵۶/۱۰/۲۹ — باغ سرهنگ (حوالی خان‌زنیان)", texts.START_WELCOME_TEXT)
+        """Verifies exact narrative texts for Step 1, Step 3, and Step 4."""
+        # Step 1: Hook and roles
+        self.assertIn("رازِ ناگفته‌ی باغ سرهنگ", texts.START_WELCOME_TEXT)
+        self.assertIn("خان‌زنیان", texts.START_WELCOME_TEXT)
         self.assertIn("سرهنگ بهرام فرهمند", texts.START_WELCOME_TEXT)
         self.assertIn("آرش", texts.START_WELCOME_TEXT)
-        self.assertIn("بازرسان پرونده (۱۲ تا ۱۵ داوطلب در ۳ تیم ۴ تا ۵ نفره)", texts.START_WELCOME_TEXT)
-        self.assertIn("همراهان مهمانی (بلوندهای بی‌گناه)", texts.START_WELCOME_TEXT)
+        self.assertIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
+        self.assertIn("بازیکنان پرونده (The Investigators — فقط ۱۲ تا ۱۵ نفر)", texts.START_WELCOME_TEXT)
 
-        # Part C: Pre-Midnight Crisis Broadcast (23:50)
+        # Step 4: Pre-Midnight Crisis Broadcast (23:50)
         expected_crisis = (
-            "⚠️ آخرین نسخه‌ی پرونده‌ی سرهنگ از تاریکخانه دریافت شد.\n"
-            "یک فایل ناقص است.\n"
-            "و یک نفر در باغ، به هر قیمتی نمی‌خواهد این فایل پیدا شود."
+            "⚠️ آخرین فایل صوتی سرهنگ از تاریکخانه استخراج شد.\n"
+            "یکی از اسناد مفقود است...\n"
+            "و یک نفر در این باغ، نمیخواهد حقیقت فاش شود."
         )
         self.assertEqual(texts.CRISIS_BROADCAST_TEXT, expected_crisis)
         self.assertEqual(game.CRISIS_BROADCAST_TEXT, expected_crisis)
 
-        # Part E: Final Darkroom Sequence (01:10 AM)
-        expected_darkroom = (
-            "🕯 آخرین مدرک در تاریکخانه است.\n"
-            "نادر فهمیده که عکس پیدا شده است.\n"
-            "او برای آخرین بار به باغ برگشته تا مدرک را پس بگیرد."
+        # Step 4: Finale Trigger (01:10 AM)
+        expected_finale = (
+            "🕯 **[شواهد کامل شد — حمله به تاریکخانه]**\n"
+            "نادر وثوق فهمیده که دستش رو شده است! او برای سرقت پیراهن آرش و دکمهی سردست جا مانده در جیب آن، وارد اتاق تاریکخانه شده است.\n"
+            "با نور قرمز و در آرامش کامل وارد اتاق شوید!"
         )
-        self.assertEqual(texts.DARKROOM_FINAL_PROMPT, expected_darkroom)
-        self.assertEqual(game.DARKROOM_FINAL_PROMPT, expected_darkroom)
+        self.assertEqual(texts.DARKROOM_FINAL_PROMPT, expected_finale)
+        self.assertEqual(game.DARKROOM_FINAL_PROMPT, expected_finale)
+        self.assertEqual(texts.FINALE_BROADCAST_TEXT, expected_finale)
 
     def test_invitation_card_generation(self):
         """Verifies that invitation and immunity cards generate successfully without font or bidi crash."""
