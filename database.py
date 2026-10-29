@@ -42,6 +42,38 @@ async def init_db() -> None:
             );
         """)
 
+        # Competitive accusations and immutable first-winner record.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS team_accusations (
+                team_number INTEGER PRIMARY KEY CHECK (team_number BETWEEN 1 AND 3),
+                suspect TEXT NOT NULL,
+                evidence_1 TEXT NOT NULL DEFAULT '',
+                evidence_2 TEXT NOT NULL DEFAULT '',
+                rationale TEXT NOT NULL DEFAULT '',
+                submitted_by INTEGER NOT NULL,
+                first_submitted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                evidence_valid INTEGER NOT NULL DEFAULT 0,
+                is_valid INTEGER NOT NULL DEFAULT 0
+            );
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS game_winner (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                team_number INTEGER NOT NULL UNIQUE CHECK (team_number BETWEEN 1 AND 3),
+                submitted_by INTEGER NOT NULL,
+                winning_at TEXT NOT NULL,
+                suspect TEXT NOT NULL,
+                evidence_1 TEXT NOT NULL,
+                evidence_2 TEXT NOT NULL,
+                rationale TEXT NOT NULL
+            );
+        """)
+        await db.execute(
+            "INSERT OR IGNORE INTO game_state (key, value) VALUES ('deductions_closed', '0')"
+        )
+
         # Migration helper
         cursor = await db.execute("PRAGMA table_info(guests)")
         columns = [row[1] for row in await cursor.fetchall()]
@@ -267,36 +299,207 @@ async def record_rescue_alert(telegram_id: int, guest_name: str) -> int:
     await set_game_state("last_rescue_alert_by", f"{guest_name} ({telegram_id})")
     return new_count
 
-async def record_team_accusation(team_number: int, suspect: str, telegram_id: int) -> Dict[str, Any]:
+
+def _classify_team_evidence(team_number: int, evidence: str) -> str | None:
+    """Classifies one concise evidence point into a team-specific category."""
+    normalized = _normalize_text(evidence)
+    if not normalized:
+        return None
+    categories = {
+        1: {
+            "medical": ["نمونه b", "خون", "جراحت سر", "اسیب سر", "هموگلوبین", "لبه سنگی"],
+            "financial": ["r17", "nv17", "دفتر حساب", "دفتر مالی", "اختلاس", "انتقال مالی", "رسید", "حساب بدون تایید"],
+        },
+        2: {
+            "photo_time": ["انعکاس", "سایه", "عکس", "نگاتیو", "2219", "2910", "فریم", "زمان ثبت تصویر"],
+            "identity_alibi": ["nv17", "جلیقه زغالی", "ادعای خروج", "خروج پیش", "تناقض زمانی", "تطبیق هویت", "تایم لاین"],
+        },
+        3: {
+            "witness": ["شهادت شیرین", "شیرین", "هل دادن", "هلدادن", "درگیری کنار استخر", "شاهد مستقیم"],
+            "corroboration": ["nv17", "مدیر امور مالی", "گزارش پزشکی", "جراحت سر", "فهرست کارکنان", "اختلاس", "دفتر حساب"],
+        },
+    }
+    hits = [
+        category for category, needles in categories.get(team_number, {}).items()
+        if any(_normalize_text(needle) in normalized for needle in needles)
+    ]
+    # One field must be one finding, not a combined answer to the whole case.
+    return hits[0] if len(hits) == 1 else None
+
+
+def validate_team_evidence_points(team_number: int, evidence_1: str, evidence_2: str) -> bool:
+    """Requires two distinct, team-relevant evidence categories."""
+    e1, e2 = _normalize_text(evidence_1 or ""), _normalize_text(evidence_2 or "")
+    if not e1 or not e2 or e1 == e2:
+        return False
+    c1 = _classify_team_evidence(team_number, evidence_1)
+    c2 = _classify_team_evidence(team_number, evidence_2)
+    return bool(c1 and c2 and c1 != c2)
+
+
+async def record_team_accusation(
+    team_number: int,
+    suspect: str,
+    telegram_id: int,
+    evidence_1: str | None = None,
+    evidence_2: str | None = None,
+    rationale: str | None = None,
+) -> Dict[str, Any]:
     """
-    Records an accusation for the team at the central deduction table.
-    Teams can revise their theory until the host closes deduction.
+    Stores one team's current private accusation. Legacy suspect-only submissions
+    remain drafts but cannot win. Winner selection is serialized by BEGIN IMMEDIATE.
     """
-    cleaned = suspect.strip()
-    await set_game_state(f"team_{team_number}_accusation", cleaned)
-    await set_game_state(f"team_{team_number}_accusation_by", str(telegram_id))
-    async with aiosqlite.connect(DB_PATH) as db:
+    if team_number not in (1, 2, 3):
+        return {"status": "invalid_team", "team_number": team_number}
+
+    from datetime import datetime, timezone
+    cleaned = (suspect or "").strip()
+    ev1, ev2, reason = (evidence_1 or "").strip(), (evidence_2 or "").strip(), (rationale or "").strip()
+    has_details = bool(ev1 and ev2 and reason)
+    evidence_valid = validate_team_evidence_points(team_number, ev1, ev2) if has_details else False
+    rationale_valid = len(_normalize_text(reason)) >= 12
+    normalized_suspect = _normalize_text(cleaned)
+    correct_suspect = (
+        _normalize_text("نادر وثوق") in normalized_suspect
+        or "nader vosough" in normalized_suspect
+    )
+    is_valid = bool(has_details and evidence_valid and rationale_valid)
+
+    async with aiosqlite.connect(DB_PATH, timeout=10) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("BEGIN IMMEDIATE")
+        async with db.execute("SELECT value FROM game_state WHERE key = 'deductions_closed'") as cursor:
+            closed_row = await cursor.fetchone()
+        if closed_row and closed_row["value"] == "1":
+            await db.rollback()
+            return {"status": "closed", "team_number": team_number}
+
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        await db.execute("""
+            INSERT INTO team_accusations (
+                team_number, suspect, evidence_1, evidence_2, rationale,
+                submitted_by, first_submitted_at, updated_at,
+                is_correct, evidence_valid, is_valid
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(team_number) DO UPDATE SET
+                suspect = excluded.suspect,
+                evidence_1 = excluded.evidence_1,
+                evidence_2 = excluded.evidence_2,
+                rationale = excluded.rationale,
+                submitted_by = excluded.submitted_by,
+                updated_at = excluded.updated_at,
+                is_correct = excluded.is_correct,
+                evidence_valid = excluded.evidence_valid,
+                is_valid = excluded.is_valid
+        """, (
+            team_number, cleaned, ev1, ev2, reason, telegram_id, now, now,
+            int(correct_suspect), int(evidence_valid and rationale_valid), int(is_valid)
+        ))
+        # Keep legacy state keys readable; guest-facing code does not query other teams.
+        await db.execute(
+            "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+            (f"team_{team_number}_accusation", cleaned)
+        )
+        await db.execute(
+            "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+            (f"team_{team_number}_accusation_by", str(telegram_id))
+        )
         await db.execute("UPDATE guests SET accusation = ? WHERE team_number = ?", (cleaned, team_number))
+
+        winner_created = False
+        if is_valid and correct_suspect:
+            cur = await db.execute("""
+                INSERT OR IGNORE INTO game_winner (
+                    id, team_number, submitted_by, winning_at, suspect,
+                    evidence_1, evidence_2, rationale
+                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+            """, (team_number, telegram_id, now, cleaned, ev1, ev2, reason))
+            winner_created = cur.rowcount == 1
+
+        async with db.execute("SELECT team_number FROM game_winner WHERE id = 1") as cursor:
+            winner_row = await cursor.fetchone()
+        async with db.execute(
+            "SELECT first_submitted_at, updated_at FROM team_accusations WHERE team_number = ?",
+            (team_number,)
+        ) as cursor:
+            timestamps = await cursor.fetchone()
         await db.commit()
+
+    status = "insufficient_evidence" if has_details and not (evidence_valid and rationale_valid) else "recorded"
     return {
-        "status": "recorded",
+        "status": status,
         "team_number": team_number,
-        "suspect": cleaned
+        "suspect": cleaned,
+        "evidence_1": ev1,
+        "evidence_2": ev2,
+        "rationale": reason,
+        "is_correct": bool(correct_suspect),
+        "evidence_valid": bool(evidence_valid and rationale_valid),
+        "is_valid": is_valid,
+        "is_winner": bool(winner_row and winner_row["team_number"] == team_number),
+        "winner_created": winner_created,
+        "winner_team": winner_row["team_number"] if winner_row else None,
+        "first_submitted_at": timestamps["first_submitted_at"] if timestamps else None,
+        "updated_at": timestamps["updated_at"] if timestamps else None,
     }
 
+
 async def get_team_accusation(team_number: int) -> Optional[str]:
-    """Retrieves current recorded accusation for a team."""
+    """Returns only the specified team's current suspect."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT suspect FROM team_accusations WHERE team_number = ?", (team_number,)) as cursor:
+            row = await cursor.fetchone()
+    if row:
+        return row[0]
+    # Compatibility with databases that contain pre-upgrade key/value accusations.
     val = await get_game_state(f"team_{team_number}_accusation", "")
     return val if val else None
 
+
+async def get_team_accusation_details(team_number: int) -> Optional[Dict[str, Any]]:
+    """Returns full detail for one team only; use only in that team's private flow."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM team_accusations WHERE team_number = ?", (team_number,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
 async def get_all_accusations() -> Dict[int, str]:
-    """Retrieves all submitted accusations across all teams."""
-    results = {}
-    for t_num in (1, 2, 3):
-        acc = await get_team_accusation(t_num)
-        if acc:
-            results[t_num] = acc
+    """Admin-only summary helper; guest handlers must use get_team_accusation."""
+    results: Dict[int, str] = {}
+    for team_num in (1, 2, 3):
+        accusation = await get_team_accusation(team_num)
+        if accusation:
+            results[team_num] = accusation
     return results
+
+
+async def get_game_winner() -> Optional[Dict[str, Any]]:
+    """Returns the immutable first-winning accusation, if one exists."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM game_winner WHERE id = 1") as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
+async def trigger_finale_once() -> bool:
+    """Closes accusation intake and records the finale trigger exactly once."""
+    from datetime import datetime, timezone
+    async with aiosqlite.connect(DB_PATH, timeout=10) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        async with db.execute("SELECT value FROM game_state WHERE key = 'finale_triggered_at'") as cursor:
+            existing = await cursor.fetchone()
+        if existing and existing[0]:
+            await db.commit()
+            return False
+        now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('deductions_closed', '1')")
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'finale')")
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('finale_triggered_at', ?)", (now,))
+        await db.commit()
+        return True
 
 async def tag_possession(target_pin: str, hunter_name: str) -> Dict[str, Any]:
     """Attempts to possess a guest by PIN."""
@@ -446,20 +649,24 @@ async def assign_random_hunters(count: int = 5) -> List[Dict[str, Any]]:
 
     return await get_hunters()
 
-async def start_social_game(count: int = 5) -> Dict[str, Any]:
-    """
-    Starts Phase 2 (19:15 Social Game):
-    1. Selects 5 random players as Secret Infected (is_hunter=1).
-    2. Marks social_game_started=1 in game_state.
-    3. Returns dict with 'hunters' and 'regular_players'.
-    """
-    await assign_random_hunters(count=count)
+
+async def start_social_game(count: int = 3) -> Dict[str, Any]:
+    """Starts the social phase without prematurely assigning or revealing teams."""
+    characters = await assign_special_character_roles(force_reassign=False)
     await set_game_state("social_game_started", "1")
     await set_game_state("force_unlock_missions", "1")
-
     all_players = await get_players()
-    hunters = [p for p in all_players if p.get("is_hunter") == 1]
-    regular_players = [p for p in all_players if p.get("is_hunter") != 1]
+    witness_roles = {"shirin", "keyvan", "fereydoun"}
+    hunters = [p for p in all_players if p.get("character_role") in witness_roles]
+    regular_players = [
+        p for p in all_players
+        if p.get("character_role") not in witness_roles and p.get("character_role") != "nader"
+    ]
+    if not characters:
+        await assign_random_hunters(count=min(3, max(0, len(all_players) - 1)))
+        hunters = await get_hunters()
+        hunter_ids = {p["id"] for p in hunters}
+        regular_players = [p for p in all_players if p["id"] not in hunter_ids]
     return {"hunters": hunters, "regular_players": regular_players}
 
 async def get_hunters() -> List[Dict[str, Any]]:
@@ -472,84 +679,82 @@ async def get_hunters() -> List[Dict[str, Any]]:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
+
 async def assign_special_character_roles(force_reassign: bool = False) -> Dict[str, Dict[str, Any]]:
     """
-    Assigns the 4 canonical character roles among active mystery players:
-    1. Shirin Nouri (witness 1, sticker carrier): Team 1 member
-    2. Keyvan Rastegar (witness 2, sticker carrier): Team 2 member
-    3. Dr. Fereydoun Mehr (witness 3, sticker carrier): Team 3 member
-    4. Nader Vosough (actual killer, hidden role): active player in any team, distinct from witnesses.
-    Never assigns to role_blonde.
+    Assigns the three witness sticker-carriers and one scripted Nader actor.
+    Before midnight this does not create or expose team assignments. If teams
+    already exist, one witness is selected from each. Nader is always teamless.
     """
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-
-        # Check if already assigned
         if not force_reassign:
-            async with db.execute("SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'") as cursor:
+            async with db.execute(
+                "SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'"
+            ) as cursor:
                 rows = [dict(r) for r in await cursor.fetchall()]
-                existing = {r["character_role"]: r for r in rows}
-                if len(existing) >= 4 and all(k in existing for k in ["shirin", "keyvan", "fereydoun", "nader"]):
-                    return existing
+            existing = {r["character_role"]: r for r in rows}
+            if all(k in existing for k in ("shirin", "keyvan", "fereydoun", "nader")):
+                await db.execute(
+                    "UPDATE guests SET team_number = NULL, team_name = NULL, is_traitor = 0 WHERE character_role = 'nader'"
+                )
+                await db.commit()
+                existing["nader"]["team_number"] = None
+                existing["nader"]["team_name"] = None
+                existing["nader"]["is_traitor"] = 0
+                return existing
 
-        # Get active players
         async with db.execute("SELECT * FROM guests WHERE role = 'role_player' ORDER BY id ASC") as cursor:
             players = [dict(r) for r in await cursor.fetchall()]
-
-        if not players:
+        if len(players) < 4:
             return {}
 
-        # Reset existing character roles
-        await db.execute("UPDATE guests SET character_role = NULL, is_hunter = 0")
+        await db.execute("""
+            UPDATE guests
+            SET character_role = NULL, is_hunter = 0, is_traitor = 0
+            WHERE role = 'role_player'
+        """)
+        team_players = {
+            1: [p for p in players if p.get("team_number") == 1],
+            2: [p for p in players if p.get("team_number") == 2],
+            3: [p for p in players if p.get("team_number") == 3],
+        }
+        if all(team_players[t] for t in (1, 2, 3)):
+            witnesses = {
+                "shirin": random.choice(team_players[1]),
+                "keyvan": random.choice(team_players[2]),
+                "fereydoun": random.choice(team_players[3]),
+            }
+        else:
+            selected = random.sample(players, 3)
+            witnesses = dict(zip(("shirin", "keyvan", "fereydoun"), selected))
 
-        # Separate players by team (1, 2, 3)
-        t1_players = [p for p in players if p.get("team_number") == 1]
-        t2_players = [p for p in players if p.get("team_number") == 2]
-        t3_players = [p for p in players if p.get("team_number") == 3]
+        witness_ids = {p["id"] for p in witnesses.values()}
+        candidates = [p for p in players if p["id"] not in witness_ids]
+        if not candidates:
+            await db.rollback()
+            return {}
+        nader = random.choice(candidates)
 
-        if not t1_players or not t2_players or not t3_players:
-            # Distribute players across 3 teams first
-            for idx, p in enumerate(players):
-                t_num = (idx % 3) + 1
-                t_names = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
-                await db.execute("UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?", (t_num, t_names[t_num], p["id"]))
-                p["team_number"] = t_num
-                p["team_name"] = t_names[t_num]
-
-            t1_players = [p for p in players if p.get("team_number") == 1]
-            t2_players = [p for p in players if p.get("team_number") == 2]
-            t3_players = [p for p in players if p.get("team_number") == 3]
-
-        shirin = random.choice(t1_players) if t1_players else players[0]
-        keyvan = random.choice(t2_players) if t2_players else players[min(1, len(players) - 1)]
-        fereydoun = random.choice(t3_players) if t3_players else players[min(2, len(players) - 1)]
-
-        # Nader must be distinct from the 3 witnesses
-        candidates = [p for p in players if p["id"] not in {shirin["id"], keyvan["id"], fereydoun["id"]}]
-        nader = random.choice(candidates) if candidates else random.choice(players)
-
-        # Update in database (witnesses are sticker carriers: is_hunter=1)
-        await db.execute("UPDATE guests SET character_role = 'shirin', is_hunter = 1 WHERE id = ?", (shirin["id"],))
-        await db.execute("UPDATE guests SET character_role = 'keyvan', is_hunter = 1 WHERE id = ?", (keyvan["id"],))
-        await db.execute("UPDATE guests SET character_role = 'fereydoun', is_hunter = 1 WHERE id = ?", (fereydoun["id"],))
-        await db.execute("UPDATE guests SET character_role = 'nader', is_hunter = 0 WHERE id = ?", (nader["id"],))
+        for role_name, person in witnesses.items():
+            await db.execute(
+                "UPDATE guests SET character_role = ?, is_hunter = 1, is_traitor = 0 WHERE id = ?",
+                (role_name, person["id"])
+            )
+        await db.execute("""
+            UPDATE guests
+            SET character_role = 'nader', is_hunter = 0, is_traitor = 0,
+                team_number = NULL, team_name = NULL
+            WHERE id = ?
+        """, (nader["id"],))
         await db.commit()
 
-        shirin["character_role"] = "shirin"
-        shirin["is_hunter"] = 1
-        keyvan["character_role"] = "keyvan"
-        keyvan["is_hunter"] = 1
-        fereydoun["character_role"] = "fereydoun"
-        fereydoun["is_hunter"] = 1
-        nader["character_role"] = "nader"
-        nader["is_hunter"] = 0
-
-        return {
-            "shirin": shirin,
-            "keyvan": keyvan,
-            "fereydoun": fereydoun,
-            "nader": nader
-        }
+        result: Dict[str, Dict[str, Any]] = {}
+        for role_name, person in {**witnesses, "nader": nader}.items():
+            async with db.execute("SELECT * FROM guests WHERE id = ?", (person["id"],)) as cursor:
+                row = await cursor.fetchone()
+                result[role_name] = dict(row)
+        return result
 
 async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
     """Returns currently assigned special characters."""
@@ -570,73 +775,101 @@ async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
                     result[r["character_role"]] = r
             return result
 
+
 async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
     """
-    Starts Phase 3 (The 24:00 Midnight Investigation Game):
-    1. Splits active mystery players into 3 teams (تیم ۱ to ۳) of 4-5 players each.
-    2. Appoints 1 secret traitor per team (is_traitor=1).
-    3. Resets riddles (riddle_1_solved=0, riddle_2_solved=0).
-    4. Marks midnight_game_started=1 and game_phase='midnight_investigation' in game_state.
-    5. Returns teams dict keyed by team_number (1..3).
+    Starts exactly three independent investigations. Witnesses are split one per
+    team; the scripted Nader actor is not assigned to a scoring team. Repeated
+    calls after the start preserve team progress instead of rerolling it.
     """
     players = await get_players()
-    if not players:
+    if len(players) < 4:
         return {}
 
-    team_names = {
-        1: "تیم ۱ (خون)",
-        2: "تیم ۲ (سایه)",
-        3: "تیم ۳ (سکوت)",
-        4: "تیم ۴ (آینه)"
-    }
-    actual_count = min(team_count, 4)
-
-    random.shuffle(players)
-    assigned: Dict[int, Dict[str, Any]] = {
-        i: {"name": team_names[i], "members": [], "traitor": None}
-        for i in range(1, actual_count + 1)
-    }
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            UPDATE guests
-            SET team_number = NULL, team_name = NULL, is_traitor = 0,
-                riddle_1_solved = 0, riddle_2_solved = 0
-        """)
-
-        for idx, p in enumerate(players):
-            team_num = (idx % actual_count) + 1
-            t_name = team_names[team_num]
-            p["team_number"] = team_num
-            p["team_name"] = t_name
-            assigned[team_num]["members"].append(p)
-            await db.execute(
-                "UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?",
-                (team_num, t_name, p["id"])
-            )
-
-        # Select 1 traitor per team
-        for team_num in range(1, actual_count + 1):
-            members = assigned[team_num]["members"]
+    started = (await get_game_state("midnight_game_started", "0")) == "1"
+    phase = await get_game_state("game_phase", "registration")
+    if started and phase in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        labels = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}
+        current = {}
+        for team_num in (1, 2, 3):
+            members = await get_team_members(team_num)
             if members:
-                traitor = random.choice(members)
-                traitor["is_traitor"] = 1
-                assigned[team_num]["traitor"] = traitor
-                await db.execute(
-                    "UPDATE guests SET is_traitor = 1 WHERE id = ?",
-                    (traitor["id"],)
-                )
+                current[team_num] = {"name": labels[team_num], "members": members, "traitor": None}
+        if current:
+            return current
 
+    characters = await assign_special_character_roles(force_reassign=False)
+    if not all(characters.get(role) for role in ("shirin", "keyvan", "fereydoun", "nader")):
+        characters = await assign_special_character_roles(force_reassign=True)
+    if not all(characters.get(role) for role in ("shirin", "keyvan", "fereydoun", "nader")):
+        return {}
+
+    players = await get_players()
+    candidates = [p for p in players if p.get("character_role") != "nader"]
+    if len(candidates) < 3:
+        return {}
+
+    team_names = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}
+    placements: Dict[int, List[Dict[str, Any]]] = {1: [], 2: [], 3: []}
+    witness_roles = {1: "shirin", 2: "keyvan", 3: "fereydoun"}
+    placed_ids = set()
+    for team_num, role_name in witness_roles.items():
+        witness = characters.get(role_name)
+        if witness:
+            person = next((p for p in candidates if p["id"] == witness["id"]), None)
+            if person:
+                placements[team_num].append(person)
+                placed_ids.add(person["id"])
+
+    remaining = [p for p in candidates if p["id"] not in placed_ids]
+    random.shuffle(remaining)
+    for person in remaining:
+        smallest = min(len(placements[t]) for t in (1, 2, 3))
+        choices = [t for t in (1, 2, 3) if len(placements[t]) == smallest]
+        placements[random.choice(choices)].append(person)
+
+    async with aiosqlite.connect(DB_PATH, timeout=10) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        await db.execute("""
+            UPDATE guests SET team_number = NULL, team_name = NULL, is_traitor = 0,
+                riddle_1_solved = 0, riddle_2_solved = 0, accusation = NULL
+            WHERE role = 'role_player'
+        """)
+        for team_num, members in placements.items():
+            for person in members:
+                await db.execute(
+                    "UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?",
+                    (team_num, team_names[team_num], person["id"])
+                )
+        await db.execute("DELETE FROM team_accusations")
+        await db.execute("DELETE FROM game_winner")
+        await db.execute("""
+            DELETE FROM game_state
+            WHERE key LIKE 'team_4_%'
+               OR key LIKE 'team_1_accusation%'
+               OR key LIKE 'team_2_accusation%'
+               OR key LIKE 'team_3_accusation%'
+               OR key IN ('finale_triggered_at', 'reveal_triggered_at')
+        """)
+        for team_num in (1, 2, 3):
+            for riddle_num in (1, 2):
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, '0')",
+                    (f"team_{team_num}_riddle_{riddle_num}",)
+                )
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('deductions_closed', '0')")
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('midnight_game_started', '1')")
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'midnight_investigation')")
         await db.commit()
 
-    # Clear riddle game state
-    for i in range(1, actual_count + 1):
-        await set_game_state(f"team_{i}_riddle_1", "0")
-        await set_game_state(f"team_{i}_riddle_2", "0")
-
-    await set_game_state("midnight_game_started", "1")
-    await set_game_state("game_phase", "midnight_investigation")
-    return assigned
+    return {
+        team_num: {
+            "name": team_names[team_num],
+            "members": await get_team_members(team_num),
+            "traitor": None,
+        }
+        for team_num in (1, 2, 3)
+    }
 
 async def assign_midnight_teams() -> Dict[str, List[Dict[str, Any]]]:
     """Backward compatibility alias for assign_midnight_teams."""
@@ -695,148 +928,92 @@ async def is_all_evidence_collected() -> bool:
             return False
     return True
 
+
 async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
-    """
-    Checks answer against player's assigned team riddles.
-    Team 1: Riddle 1 = خون | Riddle 2 = 1356
-    Team 2: Riddle 1 = سایه | Riddle 2 = 2910
-    Team 3: Riddle 1 = سکوت | Riddle 2 = 5
-    """
-    guest = await get_guest_by_telegram_id(telegram_id)
-    if not guest:
-        return {"status": "not_registered"}
-
-    team_num = guest.get("team_number")
-    if not team_num or team_num < 1 or team_num > 4:
-        return {"status": "no_team"}
-
+    """Atomically validates only the sender's two canonical team answers."""
     team_riddle_answers = {
-        1: {
-            1: ["خون", "blood", "خون سرخ"],
-            2: ["1356", "۱۳۵۶"]
-        },
-        2: {
-            1: ["سایه", "shadow", "سايه"],
-            2: ["2910", "۲۹۱۰"]
-        },
-        3: {
-            1: ["سکوت", "silence", "سکوت مطلق"],
-            2: ["5", "پنج", "۵"]
-        },
-        4: {
-            1: ["آینه", "mirror", "اینه", "آيينه"],
-            2: ["12", "۱۲", "2400", "۲۴۰۰"]
-        }
+        1: {1: ["خون", "blood", "خون سرخ"], 2: ["1356", "۱۳۵۶"]},
+        2: {1: ["سایه", "shadow", "سايه"], 2: ["2910", "۲۹۱۰"]},
+        3: {1: ["سکوت", "silence", "سکوت مطلق"], 2: ["5", "پنج", "۵"]},
     }
-
-    answers = team_riddle_answers.get(team_num, {})
-
-    r1_solved = (await get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2_solved = (await get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-
-    if r1_solved and r2_solved:
-        return {
-            "status": "already_both_solved",
-            "team_number": team_num,
-            "response_text": game.CLIMAX_INSTRUCTIONS
-        }
-
-    # Check match with Riddle 1
-    match_r1 = any(_matches_candidate(answer, cand) for cand in answers.get(1, []))
-    # Check match with Riddle 2
-    match_r2 = any(_matches_candidate(answer, cand) for cand in answers.get(2, []))
-
-    if match_r1:
-        if r1_solved:
-            return {
-                "status": "already_solved",
-                "riddle_num": 1,
-                "team_number": team_num,
-                "response_text": "⚠️ این مدرک (معمای شماره ۱) قبلاً توسط تیم شما ثبت شده است!"
-            }
-        await set_game_state(f"team_{team_num}_riddle_1", "1")
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("UPDATE guests SET riddle_1_solved = 1 WHERE team_number = ?", (team_num,))
+    async with aiosqlite.connect(DB_PATH, timeout=10) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("BEGIN IMMEDIATE")
+        async with db.execute("SELECT * FROM guests WHERE telegram_id = ?", (telegram_id,)) as cursor:
+            row = await cursor.fetchone()
+        if not row:
             await db.commit()
+            return {"status": "not_registered"}
 
-        resp_text = game.RIDDLE_RESPONSES.get((team_num, 1), "✅ مدرک با موفقیت ثبت شد.")
-        all_collected = await is_all_evidence_collected()
-        if r2_solved:
-            return {
-                "status": "both_solved",
-                "team_number": team_num,
-                "just_solved": 1,
-                "riddle_num": 1,
-                "response_text": resp_text,
-                "all_teams_solved": all_collected
-            }
-        return {
-            "status": "riddle_solved",
-            "riddle_num": 1,
-            "team_number": team_num,
-            "response_text": resp_text,
-            "all_teams_solved": all_collected
-        }
-
-    if match_r2:
-        if r2_solved:
-            return {
-                "status": "already_solved",
-                "riddle_num": 2,
-                "team_number": team_num,
-                "response_text": "⚠️ این مدرک (معمای شماره ۲) قبلاً توسط تیم شما ثبت شده است!"
-            }
-        await set_game_state(f"team_{team_num}_riddle_2", "1")
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("UPDATE guests SET riddle_2_solved = 1 WHERE team_number = ?", (team_num,))
+        guest = dict(row)
+        team_num = guest.get("team_number")
+        if guest.get("role") != "role_player" or team_num not in (1, 2, 3) or guest.get("character_role") == "nader":
             await db.commit()
+            return {"status": "no_team"}
 
-        resp_text = game.RIDDLE_RESPONSES.get((team_num, 2), "✅ مدرک با موفقیت ثبت شد.")
-        all_collected = await is_all_evidence_collected()
-        if r1_solved:
-            return {
-                "status": "both_solved",
-                "team_number": team_num,
-                "just_solved": 2,
-                "riddle_num": 2,
-                "response_text": resp_text,
-                "all_teams_solved": all_collected
-            }
-        return {
-            "status": "riddle_solved",
-            "riddle_num": 2,
-            "team_number": team_num,
-            "response_text": resp_text,
-            "all_teams_solved": all_collected
-        }
+        async def solved_state(riddle_num: int) -> bool:
+            async with db.execute("SELECT value FROM game_state WHERE key = ?", (f"team_{team_num}_riddle_{riddle_num}",)) as cursor:
+                state_row = await cursor.fetchone()
+            return bool(state_row and state_row["value"] == "1")
 
-    # Check if answer matches another team's riddle (cross-team submission)
-    for other_team, other_riddles in team_riddle_answers.items():
-        if other_team != team_num:
-            for r_idx, cands in other_riddles.items():
-                if any(_matches_candidate(answer, cand) for cand in cands):
-                    return {
-                        "status": "other_team_riddle",
-                        "team_number": team_num,
-                        "other_team": other_team,
-                        "response_text": game.OTHER_TEAM_CODE_ALERT
-                    }
+        r1_solved, r2_solved = await solved_state(1), await solved_state(2)
+        if r1_solved and r2_solved:
+            await db.commit()
+            return {"status": "already_both_solved", "team_number": team_num, "response_text": game.CLIMAX_INSTRUCTIONS}
 
+        answers = team_riddle_answers[team_num]
+        match_r1 = any(_matches_candidate(answer, candidate) for candidate in answers[1])
+        match_r2 = any(_matches_candidate(answer, candidate) for candidate in answers[2])
+        if match_r1 and r1_solved:
+            await db.commit()
+            return {"status": "already_solved", "riddle_num": 1, "team_number": team_num,
+                    "response_text": "⚠️ این مدرک (پاکت اول) قبلاً توسط تیم شما ثبت شده است!"}
+        if match_r2 and r2_solved:
+            await db.commit()
+            return {"status": "already_solved", "riddle_num": 2, "team_number": team_num,
+                    "response_text": "⚠️ این مدرک (پاکت دوم) قبلاً توسط تیم شما ثبت شده است!"}
+
+        if not match_r1 and not match_r2:
+            for other_team, other_riddles in team_riddle_answers.items():
+                if other_team == team_num:
+                    continue
+                if any(
+                    _matches_candidate(answer, candidate)
+                    for candidates_for_riddle in other_riddles.values()
+                    for candidate in candidates_for_riddle
+                ):
+                    await db.commit()
+                    return {"status": "other_team_riddle", "team_number": team_num,
+                            "response_text": game.OTHER_TEAM_CODE_ALERT}
+            await db.commit()
+            return {"status": "wrong", "team_number": team_num, "response_text": game.WRONG_ANSWER_TEXT}
+
+        riddle_num = 1 if match_r1 else 2
+        await db.execute(
+            "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, '1')",
+            (f"team_{team_num}_riddle_{riddle_num}",)
+        )
+        column = "riddle_1_solved" if riddle_num == 1 else "riddle_2_solved"
+        await db.execute(f"UPDATE guests SET {column} = 1 WHERE team_number = ?", (team_num,))
+        await db.commit()
+
+    all_collected = await is_all_evidence_collected()
+    other_solved = r2_solved if riddle_num == 1 else r1_solved
     return {
-        "status": "wrong",
+        "status": "both_solved" if other_solved else "riddle_solved",
         "team_number": team_num,
-        "response_text": game.WRONG_ANSWER_TEXT
+        "riddle_num": riddle_num,
+        "just_solved": riddle_num,
+        "response_text": game.RIDDLE_RESPONSES.get((team_num, riddle_num), "✅ مدرک ثبت شد."),
+        "all_teams_solved": all_collected,
     }
 
 async def assign_tester_team(telegram_id: int, team_number: int) -> Dict[str, Any]:
-    """Assigns or switches a tester's team (1, 2, 3, or 4)."""
-    team_names = {
-        1: "تیم ۱ (خون)",
-        2: "تیم ۲ (سایه)",
-        3: "تیم ۳ (سکوت)",
-        4: "تیم ۴ (آینه)"
-    }
-    t_name = team_names.get(team_number, f"تیم {team_number}")
+    """Assigns or switches a tester's team (1, 2, or 3)."""
+    team_names = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}
+    if team_number not in team_names:
+        return {"status": "invalid_team", "team_number": team_number}
+    t_name = team_names[team_number]
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id FROM guests WHERE telegram_id = ?", (telegram_id,)) as cursor:
             row = await cursor.fetchone()
@@ -927,53 +1104,62 @@ async def delete_guest_by_identifier(identifier: str) -> Optional[str]:
             return name
         return None
 
+
 async def reset_team_riddles(team_number: int | None = None) -> bool:
-    """Resets solved riddle states for testing."""
+    """Resets team progress for tests; emergency/safety requests are unaffected."""
     async with aiosqlite.connect(DB_PATH) as db:
         if team_number:
-            await db.execute("""
-                UPDATE guests 
-                SET riddle_1_solved = 0, riddle_2_solved = 0
-                WHERE team_number = ?
-            """, (team_number,))
+            if team_number not in (1, 2, 3):
+                return False
             await db.execute(
-                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
-                (f"team_{team_number}_riddle_1", "0")
+                "UPDATE guests SET riddle_1_solved = 0, riddle_2_solved = 0, accusation = NULL WHERE team_number = ?",
+                (team_number,)
             )
-            await db.execute(
-                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
-                (f"team_{team_number}_riddle_2", "0")
-            )
+            for riddle_num in (1, 2):
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, '0')",
+                    (f"team_{team_number}_riddle_{riddle_num}",)
+                )
+            await db.execute("DELETE FROM team_accusations WHERE team_number = ?", (team_number,))
+            await db.execute("DELETE FROM game_winner")
         else:
-            await db.execute("UPDATE guests SET riddle_1_solved = 0, riddle_2_solved = 0, is_immune = 0, got_stickered = 0")
-            for i in range(1, 5):
-                await db.execute(
-                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
-                    (f"team_{i}_riddle_1", "0")
-                )
-                await db.execute(
-                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
-                    (f"team_{i}_riddle_2", "0")
-                )
+            await db.execute("""
+                UPDATE guests SET riddle_1_solved = 0, riddle_2_solved = 0,
+                    is_immune = 0, got_stickered = 0, accusation = NULL
+            """)
+            for team_num in (1, 2, 3):
+                for riddle_num in (1, 2):
+                    await db.execute(
+                        "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, '0')",
+                        (f"team_{team_num}_riddle_{riddle_num}",)
+                    )
+            await db.execute("DELETE FROM team_accusations")
+            await db.execute("DELETE FROM game_winner")
+            await db.execute("""
+                DELETE FROM game_state
+                WHERE key IN ('finale_triggered_at', 'reveal_triggered_at')
+                   OR key LIKE 'team_4_%'
+                   OR key LIKE 'team_1_accusation%'
+                   OR key LIKE 'team_2_accusation%'
+                   OR key LIKE 'team_3_accusation%'
+            """)
+            await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('deductions_closed', '0')")
+            await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('midnight_game_started', '0')")
+            await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'registration')")
         await db.commit()
     return True
 
-async def get_reveal_manifest() -> Dict[str, Any]:
-    """Returns hunters and traitors for the 02:00 AM reveal."""
-    hunters = await get_hunters()
-    traitors = []
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM guests WHERE is_traitor = 1 ORDER BY team_number ASC"
-        ) as cursor:
-            rows = await cursor.fetchall()
-            traitors = [dict(r) for r in rows]
-    return {
-        "hunters": hunters,
-        "traitors": traitors
-    }
 
+async def get_reveal_manifest() -> Dict[str, Any]:
+    """Returns witnesses, sole killer, and the immutable first-winner record."""
+    characters = await get_special_characters()
+    witnesses = [characters.get(role) for role in ("shirin", "keyvan", "fereydoun") if characters.get(role)]
+    killer = characters.get("nader")
+    winner = await get_game_winner()
+    return {
+        "witnesses": witnesses, "killer": killer, "winner": winner,
+        "hunters": witnesses, "traitors": [],
+    }
 
 async def get_carpool_manifest() -> Dict[int, Dict[str, Any]]:
     """
