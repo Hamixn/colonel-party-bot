@@ -11,6 +11,8 @@ import game
 import texts
 import keyboards
 import card_generator
+from aiogram.fsm.context import FSMContext
+from states import AccusationStates
 
 router = Router()
 
@@ -296,262 +298,336 @@ async def cb_got_stickered(callback: CallbackQuery):
     await callback.answer("💀 وضعیت شما به عنوان استیکر خورده ثبت شد!", show_alert=True)
     await callback.message.answer(texts.STICKERED_ALERT)
 
+
 @router.message(Command("solve"))
 async def cmd_solve(message: Message, bot: Bot):
-    """
-    Submits and verifies an answer for the team's garden envelope riddles.
-    Triggered via /solve <پاسخ>.
-    """
-    user_answer = message.text.partition(" ")[2].strip()
+    """Validate a team's own envelope answer and notify only that team."""
+    user_answer = (message.text or "").partition(" ")[2].strip()
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
-
-    # Auto-assign tester to Team 1 if not yet configured
     if is_tester(message.from_user.id, message.from_user.username):
         if guest.get("role") != "role_player" or not guest.get("team_number"):
             await database.assign_tester_team(message.from_user.id, guest.get("team_number") or 1)
             guest = await database.get_guest_by_telegram_id(message.from_user.id)
-
     if guest.get("role") != "role_player":
-        await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
+        await message.answer("🍿 شما مهمان بخش آزاد هستید و نیازی به ورود به معماهای رقابتی ندارید.")
         return
-
     team_num = guest.get("team_number")
-    if not team_num or team_num < 1 or team_num > 4:
-        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید یا فاز کشف مدارک هنوز کلید نخورده است.")
+    if team_num not in (1, 2, 3) or guest.get("character_role") == "nader":
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید یا تیم‌بندی نیمه‌شب هنوز آغاز نشده است.")
         return
 
     if not user_answer:
         t_info = game.TEAM_RIDDLES.get(team_num, {})
-        t_name = t_info.get("name", f"تیم {team_num}")
-        r1_solved = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-        r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-
-        status_lines = [
-            f"🔍 **وضعیت مدارک {t_name}:**\n",
-            f"• پاکت اول: {'✅ مدرک ثبت شده' if r1_solved else '⏳ هنوز ثبت نشده'}",
-            f"• پاکت دوم: {'✅ مدرک ثبت شده' if r2_solved else '⏳ هنوز ثبت نشده'}",
-            "\nبرای ثبت پاسخ معما بنویسید:",
-            "`/solve <پاسخ شما>`"
-        ]
-        await message.answer("\n".join(status_lines))
-        return
-
-    res = await database.check_team_riddle(message.from_user.id, user_answer)
-    status = res.get("status")
-
-    if status == "already_both_solved":
+        r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+        r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
         await message.answer(
-            "🔓 **تیم شما قبلاً هر دو مدرک را ثبت کرده است!**\n\n"
-            + game.CLIMAX_INSTRUCTIONS
+            f"🔍 **وضعیت پرونده‌ی مستقل {t_info.get('name', 'تیم شما')}:**\n\n"
+            f"• پاکت اول: {'✅ ثبت شده' if r1 else '⏳ در انتظار بررسی'}\n"
+            f"• پاکت دوم: {'✅ ثبت شده' if r2 else '⏳ در انتظار بررسی'}\n\n"
+            "برای ثبت پاسخ بنویسید:\n/solve <پاسخ>"
         )
         return
 
+    result = await database.check_team_riddle(message.from_user.id, user_answer)
+    status = result.get("status")
+    if status == "not_registered":
+        await message.answer("⚠️ ابتدا با /start ثبت‌نام کنید.")
+        return
+    if status == "no_team":
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید.")
+        return
+    if status == "wrong":
+        await message.answer(result.get("response_text", game.WRONG_ANSWER_TEXT))
+        return
+    if status == "other_team_riddle":
+        await message.answer(result.get("response_text", game.OTHER_TEAM_CODE_ALERT))
+        return
     if status == "already_solved":
-        r_num = res.get("riddle_num", 1)
-        await message.answer(
-            res.get("response_text", f"⚠️ مدرک پاکت شماره {r_num} قبلاً توسط تیم شما ثبت شده است!")
-        )
+        await message.answer(result.get("response_text", "این پاکت قبلاً ثبت شده است."))
+        return
+    if status == "already_both_solved":
+        await message.answer("📁 هر دو پاکت تیم شما ثبت شده‌اند. نظریه‌ی مستقل خود را با /accuse آماده یا اصلاح کنید.")
         return
 
+    response_text = result.get("response_text", "✅ مدرک ثبت شد.")
+    teammates = await database.get_team_members(team_num)
     if status == "riddle_solved":
-        r_num = res.get("riddle_num", 1)
-        resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
-        await message.answer(resp_text)
-
-        # Notify other teammates
-        teammates = await database.get_team_members(team_num)
-        for tm in teammates:
-            if tm["telegram_id"] and tm["telegram_id"] != message.from_user.id:
+        await message.answer(response_text)
+        notify = (
+            f"⚡️ یکی از هم‌تیمی‌های شما پاکت {result.get('riddle_num')} را ثبت کرد. "
+            "فقط اطلاعات پرونده‌ی تیم خودتان را بررسی کنید؛ سرنخ‌های تیم‌های دیگر محرمانه‌اند."
+        )
+        for member in teammates:
+            if member.get("telegram_id") and member["telegram_id"] != message.from_user.id:
                 try:
-                    await bot.send_message(
-                        chat_id=tm["telegram_id"],
-                        text=f"⚡️ یکی از هم‌تیمی‌های شما مدرک پاکت شماره {r_num} را ثبت کرد:\n\n{resp_text}"
-                    )
+                    await bot.send_message(chat_id=member["telegram_id"], text=notify)
                 except Exception:
                     pass
         return
 
     if status == "both_solved":
-        r_num = res.get("just_solved", 2)
-        resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
-        await message.answer(resp_text)
-
-        # Notify team members that all their clues are recorded
-        teammates = await database.get_team_members(team_num)
-        for tm in teammates:
-            if tm.get("telegram_id"):
+        notify = (
+            "📁 **مدارک هر دو پاکت تیم شما ثبت شد.**\n\n"
+            "دو پاکت و اسناد پشتیبان خودتان را کنار هم بگذارید. برای برنده‌شدن باید نادر وثوق را "
+            "با دو مدرک متمایز و توضیح انگیزه یا فرصت معرفی کنید.\n"
+            "اتهام را با /accuse ثبت کنید. نتیجه محرمانه می‌ماند؛ تبادل اطلاعات با تیم‌های دیگر لازم نیست."
+        )
+        await message.answer(response_text + "\n\n" + notify)
+        for member in teammates:
+            if member.get("telegram_id") and member["telegram_id"] != message.from_user.id:
                 try:
-                    await bot.send_message(
-                        chat_id=tm["telegram_id"],
-                        text=(
-                            f"📁 **هر دو مدرک تیم شما با موفقیت ثبت شد!**\n\n"
-                            "شواهد را به میز مرکزی ببرید و منتظر بررسی مدارک سایر تیم‌ها باشید."
-                        )
-                    )
+                    await bot.send_message(chat_id=member["telegram_id"], text=notify)
                 except Exception:
                     pass
 
-        # Check if all 3 teams have completed all their evidences
-        if res.get("all_teams_solved"):
-            players = await database.get_players()
-            for p in players:
-                if p.get("telegram_id"):
-                    try:
-                        await bot.send_message(
-                            chat_id=p["telegram_id"],
-                            text=texts.DARKROOM_FINAL_PROMPT
-                        )
-                    except Exception:
-                        pass
-        return
-
-    if status == "other_team_riddle":
-        resp_text = res.get("response_text", texts.OTHER_TEAM_CODE_ALERT)
-        await message.answer(resp_text)
-        return
-
-    if status == "wrong":
-        resp_text = res.get("response_text", texts.WRONG_ANSWER_TRAP)
-        await message.answer(resp_text)
 
 @router.message(Command("team"))
 @router.message(F.text == "🔦 تیم من در حیاط")
 async def cmd_team(message: Message):
-    """Shows player's midnight team, teammates, and secret traitor brief."""
+    """Shows only the caller's own competitive team and envelope status."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با /start در سیستم ثبت‌نام کنید.")
         return
-
     if guest.get("role") != "role_player":
-        await message.answer(
-            "🍿 شما در گروه بلوندهای بی‌گناه هستید و شب را در سالن گرم همراه با فیلم و تنقلات سپری خواهید کرد."
-        )
+        await message.answer("🍿 شما مهمان بخش آزاد هستید و نیازی به تیم تحقیقاتی ندارید.")
         return
-
     team_num = guest.get("team_number")
-    if not team_num and is_tester(message.from_user.id, message.from_user.username):
+    if is_tester(message.from_user.id, message.from_user.username) and team_num not in (1, 2, 3):
         await database.assign_tester_team(message.from_user.id, 1)
         guest = await database.get_guest_by_telegram_id(message.from_user.id)
-        team_num = 1
-
-    if not team_num:
+        team_num = guest.get("team_number")
+    if team_num not in (1, 2, 3) or guest.get("character_role") == "nader":
         await message.answer(
-            "⏳ **تیم‌های حیاط هنوز نهایی نشده‌اند.**\n"
-            "تیم‌بندی‌های حیاط در ساعت ۲۴:۰۰ هم‌زمان با خاموشی و آغاز بازی اعلام خواهد شد."
+            "⏳ تیم‌های رقابتی در ساعت ۰۰:۰۰ به‌صورت خصوصی اعلام می‌شوند. "
+            "نادرِ نقش‌آفرین عضو هیچ تیم امتیازگیری نیست."
         )
         return
-
-    teammates = await database.get_team_members(team_num)
-    names = [m["full_name"] for m in teammates]
-    team_name = guest.get("team_name") or f"تیم {team_num}"
-
-    r1_solved = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-
-    traitor_text = ""
-    if guest.get("is_traitor") == 1:
-        traitor_text = (
-            "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
-            "هدف تو این است که تیمت در اتاق عمارت کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید! "
-            "سعی کن در تاریکی صدای تله‌ها را دربیاوری یا تیمت را قانع کنی که کلمه دوم رمز «مرگ» است نه «سایه»!"
-        )
-
-    msg = (
-        f"🔦 **اطلاعات تیم شما در بازی نیمه‌شب حیاط:**\n\n"
-        f"🏷 **نام تیم:** {team_name}\n"
-        f"👥 **هم‌تیمی‌های شما:** {'، '.join(names)}\n\n"
-        f"📊 **وضعیت معماها:**\n"
-        f"• پاکت اول: {'✅ حل شد' if r1_solved else '⏳ در حال جستجو'}\n"
-        f"• پاکت دوم: {'✅ حل شد' if r2_solved else '⏳ در حال جستجو'}\n\n"
-        f"💡 پاسخ هر پاکت را با دستور `/solve <پاسخ>` ارسال کنید."
-        f"{traitor_text}"
+    members = await database.get_team_members(team_num)
+    labels = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    await message.answer(
+        f"🔎 **پرونده‌ی محرمانه‌ی {labels[team_num]}**\n\n"
+        f"👥 هم‌تیمی‌ها: {'، '.join(p['full_name'] for p in members)}\n\n"
+        f"📄 پاکت اول: {'✅ ثبت شده' if r1 else '⏳ بررسی نشده'}\n"
+        f"📄 پاکت دوم: {'✅ ثبت شده' if r2 else '⏳ بررسی نشده'}\n\n"
+        "این تیم مستقل رقابت می‌کند. وضعیت، سرنخ‌ها و اتهام تیم‌های دیگر محرمانه است.\n"
+        "پاسخ: /solve <پاسخ> | اتهام: /accuse"
     )
-    await message.answer(msg)
+
 
 @router.message(Command("rescue"))
 @router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ"]))
-async def cmd_rescue(message: Message):
-    """Informs that lights are not turned on from inside; players navigate strictly using their red lantern."""
+async def cmd_rescue(message: Message, bot: Bot):
+    """Always accepts a safety request and alerts the event lead."""
+    guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    guest_name = guest.get("full_name") if guest else (message.from_user.full_name or "مهمان ناشناس")
+    count = await database.record_rescue_alert(message.from_user.id, guest_name)
+    admin_id = config.ADMIN_USER_ID if config.ADMIN_USER_ID > 0 else next(iter(TESTER_IDS), None)
+    alerted = False
+    if admin_id:
+        try:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=(
+                    "🚨 **درخواست کمک/ایمنی در باغ سرهنگ**\n\n"
+                    f"مهمان: {guest_name}\nTelegram ID: {message.from_user.id}\n"
+                    f"شماره‌ی ثبت درخواست: {count}\n"
+                    "لطفاً فوراً حضوری وضعیت مهمان را بررسی کنید و در صورت نیاز نور ایمنی را روشن کنید."
+                )
+            )
+            alerted = True
+        except Exception:
+            pass
+    if alerted:
+        await message.answer(
+            "🚨 درخواست ایمنی شما ثبت شد و به مسئول اجرا اطلاع داده شد. این دستور هیچ محدودیتی ندارد. "
+            "حرکت را متوقف کنید و در صورت نیاز مستقیم با مسئول حاضر تماس بگیرید."
+        )
+    else:
+        await message.answer(
+            "🚨 درخواست ایمنی شما ثبت شد، اما ارسال خودکار به مسئول اجرا تأیید نشد. "
+            "همین حالا حضوری مسئول اجرا را صدا بزنید و مسیر خروج را آزاد نگه دارید."
+        )
+
+
+async def _send_accusation_result(message: Message, bot: Bot, team_num: int, result: dict) -> None:
+    """Keeps team results private; only the host is notified when a winner is locked."""
+    status = result.get("status")
+    if status == "closed":
+        await message.answer("⏳ مهلت ثبت اتهام به پایان رسیده است. نتیجه در افشای رسمی اعلام می‌شود.")
+        return
+    if status == "insufficient_evidence":
+        await message.answer(
+            "⚠️ دو مدرک باید از دو دسته‌ی متفاوت و مرتبط با پرونده‌ی تیم خودتان باشند؛ "
+            "توضیح انگیزه یا فرصت نیز باید روشن باشد. با /accuse دوباره تلاش کنید."
+        )
+        return
+    if status != "recorded":
+        await message.answer("⚠️ ثبت اتهام انجام نشد. با /accuse دوباره شروع کنید.")
+        return
     await message.answer(
-        "🔴 **[قانون تاریکی مطلق باغ]**\n\n"
-        "طبق سناریوی عمارت، هیچ نوری از داخل سالن برای حیاط روشن نخواهد شد.\n"
-        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند."
+        "🔒 اتهام و توضیح تیم شما به‌صورت محرمانه ثبت شد. زمان اولین ثبت حفظ می‌شود؛ "
+        "نتیجه و پاسخ تیم‌های دیگر نمایش داده نمی‌شود."
     )
+    if result.get("winner_created"):
+        admin_id = config.ADMIN_USER_ID if config.ADMIN_USER_ID > 0 else next(iter(TESTER_IDS), None)
+        if admin_id:
+            try:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text=(
+                        "🏁 **یک اتهام کامل و صحیح ثبت شد؛ برنده برای افشای نهایی قفل شد.**\n\n"
+                        f"تیم: {team_num}\nمتهم: {result.get('suspect')}\n"
+                        f"مدرک ۱: {result.get('evidence_1', '')}\n"
+                        f"مدرک ۲: {result.get('evidence_2', '')}\n"
+                        f"استدلال: {result.get('rationale', '')}\n"
+                        "این نتیجه تا فرمان /reveal_traitors عمومی نشود."
+                    )
+                )
+            except Exception:
+                pass
+
+
+async def _record_accusation_from_parts(message: Message, bot: Bot, team_num: int, parts: list[str]) -> None:
+    result = await database.record_team_accusation(
+        team_num, parts[0], message.from_user.id, parts[1], parts[2], parts[3]
+    )
+    await _send_accusation_result(message, bot, team_num, result)
+
 
 @router.message(Command("accuse"))
-async def cmd_accuse(message: Message):
-    """
-    Central deduction submission: allows a team to submit or revise its suspect conclusion.
-    Usage: /accuse <نام متهم> or just /accuse to see suspect options.
-    """
+async def cmd_accuse(message: Message, state: FSMContext, bot: Bot):
+    """Guided private accusation; one-line format is /accuse suspect | evidence1 | evidence2 | rationale."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
-
     if guest.get("role") != "role_player":
-        await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و ثبت نظریه نهایی بر عهده‌ی تیم‌های بازرسی است.")
+        await message.answer("🍿 ثبت اتهام فقط برای سه تیم رقابتی است.")
         return
-
     team_num = guest.get("team_number")
-    if not team_num:
-        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید.")
+    if team_num not in (1, 2, 3) or guest.get("character_role") == "nader":
+        await message.answer("⚠️ شما عضو تیم امتیازگیر نیستید.")
         return
-
-    suspect_arg = message.text.partition(" ")[2].strip()
-    if not suspect_arg:
-        current_acc = await database.get_team_accusation(team_num)
-        curr_str = f"\n\n📌 **نظریه فعلی تیم شما:** «{current_acc}»" if current_acc else ""
-        await message.answer(
-            "⚖️ **[میز مرکزی تجمیع مدارک — ثبت نظریه نهایی تیم]**\n\n"
-            "با ترکیب مدرک حساب‌ها، عکس ۲۲:۱۹، دکمه سردست و شهادت شاهدان، متهم اصلی قتل آرش را انتخاب نمایید:\n"
-            "یا بنویسید: `/accuse <نام متهم>`"
-            f"{curr_str}",
-            reply_markup=keyboards.accuse_suspects_kb()
-        )
+    if await database.get_game_state("deductions_closed", "0") == "1":
+        await message.answer("⏳ مهلت ثبت اتهام بسته شده است.")
         return
-
-    res = await database.record_team_accusation(team_num, suspect_arg, message.from_user.id)
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await message.answer("🔎 ابتدا هر دو پاکت اختصاصی تیم خودتان را حل کنید؛ سپس می‌توانید اتهام مستدل ثبت کنید.")
+        return
+    args = (message.text or "").partition(" ")[2].strip()
+    if "|" in args:
+        parts = [p.strip() for p in args.split("|", 3)]
+        if len(parts) != 4 or not all(parts):
+            await message.answer("فرمت: /accuse نام مظنون | مدرک اول | مدرک دوم | توضیح انگیزه یا فرصت")
+            return
+        await _record_accusation_from_parts(message, bot, team_num, parts)
+        return
+    if args:
+        await state.update_data(accuse_team=team_num, accuse_suspect=args)
+        await state.set_state(AccusationStates.waiting_for_evidence_1)
+        await message.answer("📄 مدرک اول را دقیق و کوتاه از اسناد تیم خود بنویسید.")
+        return
+    current = await database.get_team_accusation_details(team_num)
+    current_line = f"\n\nنظریه‌ی فعلی تیم شما: «{current.get('suspect', '')}»" if current else ""
+    await state.set_state(AccusationStates.waiting_for_suspect)
     await message.answer(
-        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
-        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
-        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+        "⚖️ **ثبت اتهام محرمانه‌ی تیم شما**\n\n"
+        "قاتل را انتخاب کنید؛ سپس دو مدرک متمایز از پرونده‌ی خودتان و توضیح انگیزه یا فرصت را وارد می‌کنید.\n"
+        "قالب مستقیم:\n/accuse نام مظنون | مدرک اول | مدرک دوم | توضیح انگیزه یا فرصت"
+        f"{current_line}",
+        reply_markup=keyboards.accuse_suspects_kb()
     )
+
 
 @router.callback_query(F.data.startswith("accuse_"))
-async def cb_accuse(callback: CallbackQuery):
-    """Handles inline button accusation selection."""
+async def cb_accuse(callback: CallbackQuery, state: FSMContext):
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
-        await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
+        await callback.answer("اطلاعات شما یافت نشد.", show_alert=True)
         return
-
     team_num = guest.get("team_number")
-    if not team_num:
-        await callback.answer("شما در تیمی قرار ندارید!", show_alert=True)
+    if guest.get("role") != "role_player" or team_num not in (1, 2, 3) or guest.get("character_role") == "nader":
+        await callback.answer("شما عضو تیم امتیازگیر نیستید.", show_alert=True)
         return
-
-    suspect_key = callback.data.replace("accuse_", "").strip()
-    name_map = {
-        "نادر": "نادر وثوق (مدیر امور مالی)",
-        "شیرین": "شیرین نوری (شاهد فراری)",
-        "کیوان": "کیوان رستگار (عکاس مهمانی)",
-        "دکتر": "دکتر فریدون مهر (پزشک معالج)",
-        "سرهنگ": "سرهنگ بهرام فرهمند"
+    if await database.get_game_state("deductions_closed", "0") == "1":
+        await callback.answer("مهلت ثبت اتهام بسته شده است.", show_alert=True)
+        return
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await callback.answer("ابتدا هر دو پاکت تیم خود را ثبت کنید.", show_alert=True)
+        return
+    suspect_map = {
+        "accuse_nader": "نادر وثوق",
+        "accuse_shirin": "شیرین نوری",
+        "accuse_keyvan": "کیوان رستگار",
+        "accuse_fereydoun": "دکتر فریدون مهر",
+        "accuse_colonel": "سرهنگ بهرام فرهمند",
     }
-    suspect_name = name_map.get(suspect_key, suspect_key)
-    res = await database.record_team_accusation(team_num, suspect_name, callback.from_user.id)
+    suspect = suspect_map.get(callback.data)
+    if not suspect:
+        await callback.answer("انتخاب نامعتبر است.", show_alert=True)
+        return
+    await callback.answer()
+    await state.update_data(accuse_team=team_num, accuse_suspect=suspect)
+    await state.set_state(AccusationStates.waiting_for_evidence_1)
+    await callback.message.answer("📄 مدرک اول را دقیق و کوتاه از اسناد تیم خود بنویسید.")
 
-    await callback.answer("نظریه تیم ثبت شد!", show_alert=True)
-    await callback.message.answer(
-        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
-        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
-        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+
+@router.message(AccusationStates.waiting_for_suspect, F.text & ~F.text.startswith("/"))
+async def accusation_waiting_for_suspect(message: Message):
+    await message.answer("لطفاً یکی از گزینه‌های مظنون را انتخاب کنید یا دستور /accuse را دوباره اجرا کنید.")
+
+
+@router.message(AccusationStates.waiting_for_evidence_1, F.text & ~F.text.startswith("/"))
+async def accusation_evidence_1(message: Message, state: FSMContext):
+    value = (message.text or "").strip()
+    if not value:
+        await message.answer("مدرک اول خالی است؛ آن را دوباره وارد کنید.")
+        return
+    await state.update_data(accuse_evidence_1=value)
+    await state.set_state(AccusationStates.waiting_for_evidence_2)
+    await message.answer("📄 مدرک دوم را از دسته‌ای متفاوت و مرتبط با پرونده‌ی تیم خود بنویسید.")
+
+
+@router.message(AccusationStates.waiting_for_evidence_2, F.text & ~F.text.startswith("/"))
+async def accusation_evidence_2(message: Message, state: FSMContext):
+    value = (message.text or "").strip()
+    if not value:
+        await message.answer("مدرک دوم خالی است؛ آن را دوباره وارد کنید.")
+        return
+    await state.update_data(accuse_evidence_2=value)
+    await state.set_state(AccusationStates.waiting_for_rationale)
+    await message.answer("🧠 در چند جمله توضیح دهید این شواهد چگونه انگیزه یا فرصت مظنون را ثابت می‌کنند.")
+
+
+@router.message(AccusationStates.waiting_for_rationale, F.text & ~F.text.startswith("/"))
+async def accusation_rationale(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    if not guest or guest.get("team_number") not in (1, 2, 3) or guest.get("character_role") == "nader":
+        await state.clear()
+        await message.answer("⚠️ عضویت تیمی شما تغییر کرده است؛ با /accuse دوباره شروع کنید.")
+        return
+    if await database.get_game_state("deductions_closed", "0") == "1":
+        await state.clear()
+        await message.answer("⏳ مهلت ثبت اتهام بسته شده است.")
+        return
+    result = await database.record_team_accusation(
+        guest["team_number"], data.get("accuse_suspect", ""), message.from_user.id,
+        data.get("accuse_evidence_1", ""), data.get("accuse_evidence_2", ""),
+        (message.text or "").strip()
     )
+    await state.clear()
+    await _send_accusation_result(message, bot, guest["team_number"], result)
 
 @router.message(Command("lantern"))
 @router.message(Command("red_lantern"))
