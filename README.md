@@ -22,6 +22,6 @@ Before enabling the scheduled runner, add these repository **Actions secrets**:
 
 The scheduled runner restores and decrypts the prior SQLite snapshot, runs one bot process, then encrypts the database on its planned graceful restart. The encrypted cache lets registration, teams, clue progress, accusations, and the first-winner record survive runner restarts without placing guest data in the repository.
 
-**Security note:** if a bot token was ever committed in repository history, removing the fallback from the current workflow does not erase that history. Revoke/rotate the token in BotFather and save the new value as the `BOT_TOKEN` Actions secret before running the workflow again.
+**Security note:** a previous workflow revision contained a hardcoded fallback bot token. Because this repository is public and removing a value from the latest revision does not erase Git history, treat that token as exposed: revoke/rotate it in BotFather and save the new value as the `BOT_TOKEN` Actions secret before running the workflow again.
 
 The investigation cap is 15; the mystery remains optional for the rest of the party guests.
