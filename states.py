@@ -10,3 +10,10 @@ class RegistrationStates(StatesGroup):
 class AdminStates(StatesGroup):
     waiting_for_broadcast_text = State()
     waiting_for_broadcast_role = State()
+
+
+class AccusationStates(StatesGroup):
+    waiting_for_suspect = State()
+    waiting_for_evidence_1 = State()
+    waiting_for_evidence_2 = State()
+    waiting_for_rationale = State()
