@@ -783,7 +783,8 @@ async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
     calls after the start preserve team progress instead of rerolling it.
     """
     players = await get_players()
-    if len(players) < 4:
+    # A complete live game needs 12-15 investigators plus the separate Nader actor.
+    if len(players) < 13:
         return {}
 
     started = (await get_game_state("midnight_game_started", "0")) == "1"
