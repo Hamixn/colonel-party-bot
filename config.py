@@ -7,7 +7,7 @@ load_dotenv(BASE_DIR / ".env")
 
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_USER_ID: int = int(os.getenv("ADMIN_USER_ID", "0"))
-PLAYER_CAP: int = int(os.getenv("PLAYER_CAP", "20"))
+PLAYER_CAP: int = int(os.getenv("PLAYER_CAP", "15"))
 DB_PATH: Path = BASE_DIR / os.getenv("DB_PATH", "colonel_party.db")
 
 ASSETS_DIR: Path = BASE_DIR / "assets"
