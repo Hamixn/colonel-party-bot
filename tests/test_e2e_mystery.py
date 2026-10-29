@@ -97,6 +97,7 @@ class BaseE2ETestCase(unittest.IsolatedAsyncioTestCase):
                 (302, 'blonde_2', 'بلوند دوم', 'role_blonde', NULL, NULL)
             """)
             await db.commit()
+        await database.set_game_state("game_phase", "midnight_investigation")
 
     async def asyncTearDown(self):
         config.ADMIN_USER_ID = self.orig_admin_id
