@@ -617,13 +617,20 @@ async def cmd_trigger_darkroom(message: Message, bot: Bot):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
+    if await database.get_game_state("finale_triggered_at", ""):
+        await message.answer("ℹ️ سکانس فینال قبلاً اجرا شده است؛ پیام تکراری ارسال نشد.")
+        return
+
     from datetime import datetime, timezone
+    await database.close_deductions()
     await database.set_game_state("game_phase", "finale")
     await database.set_game_state("finale_triggered_at", datetime.now(timezone.utc).isoformat())
 
     text = game.DARKROOM_FINAL_PROMPT
     success, failed = await send_broadcast(bot, text, role_filter="role_player")
-    await message.answer(f"🕯 سکانس نهایی تاریکخانه برای {success} بازرس ارسال شد. (خطا: {failed})")
+    await message.answer(
+        f"🕯 سکانس نهایی آغاز شد و مهلت اتهام‌ها بسته شد. پیام برای {success} بازرس ارسال شد. (خطا: {failed})"
+    )
 
 @router.message(Command("unlock_missions"))
 async def cmd_unlock_missions(message: Message):
