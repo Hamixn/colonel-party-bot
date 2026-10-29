@@ -602,6 +602,19 @@ async def record_structured_accusation(
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA busy_timeout = 5000")
 
+            # Enforce the host's closed phase at the persistence layer too.
+            closed_cursor = await db.execute(
+                "SELECT value FROM game_state WHERE key = 'deductions_closed'"
+            )
+            closed_row = await closed_cursor.fetchone()
+            if closed_row and closed_row[0] == "1":
+                return {
+                    "status": "deductions_closed",
+                    "is_first_winner": False,
+                    "is_winner": False,
+                    "accusation_id": None,
+                }
+
             # Check revision count for this team
             cursor = await db.execute(
                 "SELECT COUNT(*), MAX(is_winner) FROM team_accusations WHERE team_number = ? OR team_id = ?",
@@ -904,82 +917,92 @@ async def get_hunters() -> List[Dict[str, Any]]:
 
 async def assign_special_character_roles(force_reassign: bool = False) -> Dict[str, Dict[str, Any]]:
     """
-    Assigns the 4 canonical character roles among active mystery players:
-    1. Shirin Nouri (witness 1, sticker carrier): Team 1 member
-    2. Keyvan Rastegar (witness 2, sticker carrier): Team 2 member
-    3. Dr. Fereydoun Mehr (witness 3, sticker carrier): Team 3 member
-    4. Nader Vosough (actual killer, hidden role): active player in any team, distinct from witnesses.
-    Never assigns to role_blonde.
+    Assign the three witnesses one per scoring team and keep Nader outside all teams.
+    With 13-16 active role players, this yields 12-15 investigators (4-5 per team)
+    plus one scripted killer.
     """
+    labels = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-
-        # Check if already assigned
-        if not force_reassign:
-            async with db.execute("SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'") as cursor:
-                rows = [dict(r) for r in await cursor.fetchall()]
-                existing = {r["character_role"]: r for r in rows}
-                if len(existing) >= 4 and all(k in existing for k in ["shirin", "keyvan", "fereydoun", "nader"]):
-                    return existing
-
-        # Get active players
-        async with db.execute("SELECT * FROM guests WHERE role = 'role_player' ORDER BY id ASC") as cursor:
+        async with db.execute(
+            "SELECT * FROM guests WHERE role = 'role_player' ORDER BY id ASC"
+        ) as cursor:
             players = [dict(r) for r in await cursor.fetchall()]
 
-        if not players:
+        if len(players) < 4:
             return {}
 
-        # Reset existing character roles
-        await db.execute("UPDATE guests SET character_role = NULL, is_hunter = 0")
+        if not force_reassign:
+            existing = {p.get("character_role"): p for p in players if p.get("character_role")}
+            if all(k in existing for k in ("shirin", "keyvan", "fereydoun", "nader")):
+                witness_teams = {existing[k].get("team_number") for k in ("shirin", "keyvan", "fereydoun")}
+                if witness_teams == {1, 2, 3} and existing["nader"].get("team_number") is None:
+                    return existing
 
-        # Separate players by team (1, 2, 3)
-        t1_players = [p for p in players if p.get("team_number") == 1]
-        t2_players = [p for p in players if p.get("team_number") == 2]
-        t3_players = [p for p in players if p.get("team_number") == 3]
+        await db.execute("""
+            UPDATE guests
+            SET character_role = NULL, is_hunter = 0, is_traitor = 0,
+                team_number = NULL, team_name = NULL
+            WHERE role = 'role_player'
+        """)
 
-        if not t1_players or not t2_players or not t3_players:
-            # Distribute players across 3 teams first
-            for idx, p in enumerate(players):
-                t_num = (idx % 3) + 1
-                t_names = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
-                await db.execute("UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?", (t_num, t_names[t_num], p["id"]))
-                p["team_number"] = t_num
-                p["team_name"] = t_names[t_num]
+        # Choose the scripted killer first, then build three balanced investigator teams.
+        nader = random.choice(players)
+        team_players = [p for p in players if p["id"] != nader["id"]]
+        random.shuffle(team_players)
+        teams: Dict[int, List[Dict[str, Any]]] = {1: [], 2: [], 3: []}
 
-            t1_players = [p for p in players if p.get("team_number") == 1]
-            t2_players = [p for p in players if p.get("team_number") == 2]
-            t3_players = [p for p in players if p.get("team_number") == 3]
+        for idx, person in enumerate(team_players):
+            team_num = (idx % 3) + 1
+            person["team_number"] = team_num
+            person["team_name"] = labels[team_num]
+            teams[team_num].append(person)
+            await db.execute(
+                "UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?",
+                (team_num, labels[team_num], person["id"])
+            )
 
-        shirin = random.choice(t1_players) if t1_players else players[0]
-        keyvan = random.choice(t2_players) if t2_players else players[min(1, len(players) - 1)]
-        fereydoun = random.choice(t3_players) if t3_players else players[min(2, len(players) - 1)]
+        # Exactly one witness/sticker-carrier is placed in each scoring team.
+        for team_num, role_key in ((1, "shirin"), (2, "keyvan"), (3, "fereydoun")):
+            members = teams[team_num]
+            if members:
+                witness = random.choice(members)
+                witness["character_role"] = role_key
+                witness["is_hunter"] = 1
+                await db.execute(
+                    "UPDATE guests SET character_role = ?, is_hunter = 1 WHERE id = ?",
+                    (role_key, witness["id"])
+                )
 
-        # Nader must be distinct from the 3 witnesses
-        candidates = [p for p in players if p["id"] not in {shirin["id"], keyvan["id"], fereydoun["id"]}]
-        nader = random.choice(candidates) if candidates else random.choice(players)
+        # One non-witness saboteur per team where the team has an eligible member.
+        for team_num, members in teams.items():
+            candidates = [p for p in members if not p.get("character_role")]
+            if candidates:
+                traitor = random.choice(candidates)
+                traitor["is_traitor"] = 1
+                await db.execute(
+                    "UPDATE guests SET is_traitor = 1 WHERE id = ?",
+                    (traitor["id"],)
+                )
 
-        # Update in database (witnesses are sticker carriers: is_hunter=1)
-        await db.execute("UPDATE guests SET character_role = 'shirin', is_hunter = 1 WHERE id = ?", (shirin["id"],))
-        await db.execute("UPDATE guests SET character_role = 'keyvan', is_hunter = 1 WHERE id = ?", (keyvan["id"],))
-        await db.execute("UPDATE guests SET character_role = 'fereydoun', is_hunter = 1 WHERE id = ?", (fereydoun["id"],))
-        await db.execute("UPDATE guests SET character_role = 'nader', is_hunter = 0 WHERE id = ?", (nader["id"],))
-        await db.commit()
-
-        shirin["character_role"] = "shirin"
-        shirin["is_hunter"] = 1
-        keyvan["character_role"] = "keyvan"
-        keyvan["is_hunter"] = 1
-        fereydoun["character_role"] = "fereydoun"
-        fereydoun["is_hunter"] = 1
         nader["character_role"] = "nader"
         nader["is_hunter"] = 0
+        nader["is_traitor"] = 0
+        nader["team_number"] = None
+        nader["team_name"] = None
+        await db.execute("""
+            UPDATE guests
+            SET character_role = 'nader', is_hunter = 0, is_traitor = 0,
+                team_number = NULL, team_name = NULL
+            WHERE id = ?
+        """, (nader["id"],))
+        await db.commit()
 
-        return {
-            "shirin": shirin,
-            "keyvan": keyvan,
-            "fereydoun": fereydoun,
-            "nader": nader
-        }
+        async with db.execute(
+            "SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'"
+        ) as cursor:
+            return {r["character_role"]: dict(r) for r in await cursor.fetchall()}
+
 
 async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
     """Returns currently assigned special characters."""
@@ -1003,15 +1026,10 @@ async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
 
 async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
     """
-    Starts exactly three teams. If the social phase has already assigned the
-    witnesses to their teams, preserve that lineup at midnight rather than
-    rerolling it. Repeated calls after midnight never reset progress.
+    Opens the three-team investigation without reshuffling the social-phase roster.
+    Nader remains outside scoring teams; repeated calls do not reset clue progress.
     """
     labels = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
-    players = await get_players()
-    if not players:
-        return {}
-
     phase = await get_game_state("game_phase", "registration")
     started = await get_game_state("midnight_game_started", "0") == "1"
 
@@ -1021,40 +1039,57 @@ async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
             members = await get_team_members(team_num)
             traitor = next((m for m in members if m.get("is_traitor") == 1), None)
             result[team_num] = {
-                "name": labels[team_num], "members": members, "traitor": traitor
+                "name": labels[team_num],
+                "members": members,
+                "traitor": traitor,
             }
         return result
 
     if started and phase in ("midnight_investigation", "central_deduction", "finale", "completed"):
-        # Idempotent: never shuffle teams or reset evidence after investigation starts.
         return await existing_assignments()
 
-    if started and phase == "social_game":
-        # /start_social_game pre-assigns teams so each witness can receive the
-        # right character card. Keep those assignments; only open puzzle play now.
+    if phase == "social_game":
         assignments = await existing_assignments()
-        if any(assignments[t]["members"] for t in (1, 2, 3)):
-            for team_num in (1, 2, 3):
-                for riddle_num in (1, 2):
-                    await set_game_state(f"team_{team_num}_riddle_{riddle_num}", "0")
-                await set_game_state(f"team_{team_num}_both_solved", "0")
-                await set_game_state(f"team_{team_num}_completed_at", "")
-            await set_game_state("deductions_closed", "0")
-            await set_game_state("game_phase", "midnight_investigation")
-            return assignments
+        if not all(assignments[t]["members"] for t in (1, 2, 3)):
+            return {}
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("PRAGMA busy_timeout = 5000")
+            await db.execute("DELETE FROM team_accusations")
+            await db.execute("""
+                DELETE FROM game_state
+                WHERE key LIKE 'team_4_%'
+                   OR key IN (
+                       'game_winner_team', 'winning_team_id', 'winning_timestamp',
+                       'game_winner_recorded_at', 'game_winner_accusation_id',
+                       'deductions_closed', 'finale_triggered_at', 'reveal_triggered_at',
+                       'traitors_revealed'
+                   )
+            """)
+            await db.commit()
+        for team_num in (1, 2, 3):
+            for riddle_num in (1, 2):
+                await set_game_state(f"team_{team_num}_riddle_{riddle_num}", "0")
+            await set_game_state(f"team_{team_num}_both_solved", "0")
+            await set_game_state(f"team_{team_num}_completed_at", "")
+        await set_game_state("deductions_closed", "0")
+        await set_game_state("midnight_game_started", "1")
+        await set_game_state("game_phase", "midnight_investigation")
+        return await existing_assignments()
 
+    # Defensive fallback for local development; live admin flow requires the social phase first.
+    players = [p for p in await get_players() if p.get("character_role") != "nader"]
+    if not players:
+        return {}
     random.shuffle(players)
     assigned: Dict[int, Dict[str, Any]] = {
-        i: {"name": labels[i], "members": [], "traitor": None}
-        for i in (1, 2, 3)
+        i: {"name": labels[i], "members": [], "traitor": None} for i in (1, 2, 3)
     }
-
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("PRAGMA busy_timeout = 5000")
         await db.execute("""
-            UPDATE guests
-            SET team_number = NULL, team_name = NULL, is_traitor = 0,
+            UPDATE guests SET team_number = NULL, team_name = NULL, is_traitor = 0,
                 riddle_1_solved = 0, riddle_2_solved = 0, accusation = NULL
+            WHERE role = 'role_player' AND character_role = 'nader'
         """)
         for idx, person in enumerate(players):
             team_num = (idx % 3) + 1
@@ -1065,35 +1100,19 @@ async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
                 "UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?",
                 (team_num, labels[team_num], person["id"])
             )
-
         for team_num in (1, 2, 3):
             members = assigned[team_num]["members"]
             if members:
-                traitor = random.choice(members)
+                candidates = [m for m in members if not m.get("character_role")]
+                traitor = random.choice(candidates or members)
                 traitor["is_traitor"] = 1
                 assigned[team_num]["traitor"] = traitor
                 await db.execute("UPDATE guests SET is_traitor = 1 WHERE id = ?", (traitor["id"],))
-
-        # A new game session starts with no prior winner or stale accusation rows.
         await db.execute("DELETE FROM team_accusations")
-        await db.execute("""
-            DELETE FROM game_state
-            WHERE key LIKE 'team_4_%'
-               OR key IN (
-                   'game_winner_team', 'winning_team_id', 'winning_timestamp',
-                   'game_winner_recorded_at', 'game_winner_accusation_id',
-                   'deductions_closed', 'finale_triggered_at', 'reveal_triggered_at',
-                   'traitors_revealed'
-               )
-        """)
         await db.commit()
-
     for team_num in (1, 2, 3):
         for riddle_num in (1, 2):
             await set_game_state(f"team_{team_num}_riddle_{riddle_num}", "0")
-        await set_game_state(f"team_{team_num}_both_solved", "0")
-        await set_game_state(f"team_{team_num}_completed_at", "")
-
     await set_game_state("deductions_closed", "0")
     await set_game_state("midnight_game_started", "1")
     await set_game_state("game_phase", "midnight_investigation")
