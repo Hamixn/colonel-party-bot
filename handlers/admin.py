@@ -235,10 +235,11 @@ async def cmd_start_social_game(message: Message, bot: Bot):
         )
         return
 
-    # Ensure 3 teams are initialized
-    await database.start_midnight_game(team_count=3)
-    # Assign special characters
+    # Assign the scripted killer outside the three scoring teams and place one witness per team.
     assigned_roles = await database.assign_special_character_roles()
+    if not assigned_roles or not all(k in assigned_roles for k in ("shirin", "keyvan", "fereydoun", "nader")):
+        await message.answer("⚠️ انتساب نقش‌ها انجام نشد. حداقل ۴ بازرس فعال لازم است؛ ابتدا ثبت‌نام‌ها را بررسی کنید.")
+        return
     await database.set_game_state("social_game_started", "1")
     await database.set_game_state("force_unlock_missions", "1")
     await database.set_game_state("game_phase", "social_game")
@@ -320,9 +321,14 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase != "social_game":
+        await message.answer("⚠️ ابتدا /start_social_game را اجرا کنید؛ نقش‌ها باید پیش از آغاز تحقیقات تثبیت شوند.")
+        return
+
     teams = await database.start_midnight_game()
-    if not teams:
-        await message.answer("⚠️ بازیکن ثبت‌شده‌ای برای شروع بازی نیمه‌شب وجود ندارد.")
+    if not teams or not all(teams.get(t, {}).get("members") for t in (1, 2, 3)):
+        await message.answer("⚠️ سه تیم کامل برای شروع تحقیقات موجود نیست. ثبت‌نام‌ها و نقش‌ها را بررسی کنید.")
         return
 
     red_lantern_path = Path("assets/images/red_lantern.jpg")
@@ -339,11 +345,9 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
                 continue
 
             lantern_caption = (
-                "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-                "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز نگه دارید.\n\n"
-                "⚠️ **تنها نوری که می‌توانید استفاده کنید و سرهنگ به آن حساس نیست همین است!**\n"
-                "سرهنگ به نور سرخ تاریک‌خانه‌اش الفت داشته و به آن کاملاً نابیناست. "
-                "روشن کردن هرگونه چراغ‌قوه سفید یا صفحه عادی گوشی = حمله و شکار فوری توسط روح سرهنگ!"
+                "🔴 **فانوس سرخ دیجیتال — وسیله‌ی نمایشی اختیاری** 🕯\n\n"
+                "این تصویر جایگزین نور واقعی نیست. مسیرها، پله‌ها، اطراف استخر و خروجی‌ها باید روشن بمانند. "
+                "برای ایمنی از چراغ‌قوه یا نور گوشی استفاده کنید؛ هیچ نور سفیدی موجب حذف یا جریمه‌ی بازی نمی‌شود."
             )
 
             rules_msg = (
@@ -376,10 +380,10 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             await bot.send_message(
                 chat_id=b_tid,
                 text=(
-                    "🍿 **[ساعت ۲۴:۰۰ — زنگ خاموشی عمارت و آغاز بازی حیاط نواخته شد!]**\n\n"
-                    "چراغ‌های حیاط خاموش شد و بازیکنان با فانوس سرخ وارد تاریکی باغ شدند!\n"
-                    "پخش فیلم سینمایی ترسناک در سالن گرم با نوشیدنی و پاپ‌کورن آغاز گردید.\n\n"
-                    "💡 یادآوری: در صورت بحرانی شدن اوضاع حیاط، می‌توانید با دکمه‌ی «💡 روشن کردن نور حیات باغ» موقتاً ارواح را کور کنید."
+                    "🍿 **[آغاز بازی نیمه‌شب]**\n\n"
+                    "نورپردازی تزئینی و موسیقی ممکن است برای فضاسازی کاهش یابد؛ اما روشنایی ایمنی مسیرها، پله‌ها، اطراف استخر و خروجی‌ها همیشه برقرار می‌ماند.\n"
+                    "پخش فیلم و پذیرایی در سالن ادامه دارد.\n\n"
+                    "💡 در هر وضعیت ناایمن، بازی را متوقف کنید و از مسئول حاضر کمک بخواهید."
                 )
             )
         except Exception:
@@ -387,9 +391,8 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
 
     summary = ["🔦 **بازی ساعت ۲۴:۰۰ حیاط با موفقیت آغاز گردید!**\n"]
     for t_num, t_info in teams.items():
-        tr_name = t_info["traitor"]["full_name"] if t_info.get("traitor") else "نامشخص"
         m_count = len(t_info["members"])
-        summary.append(f"• **{t_info['name']}** ({m_count} نفر) — خائن مخفی: {tr_name}")
+        summary.append(f"• **{t_info['name']}** ({m_count} بازرس) — نقش‌های محرمانه برای بازیکنان ارسال شده‌اند.")
 
     await message.answer("\n".join(summary))
 
