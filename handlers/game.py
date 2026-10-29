@@ -469,37 +469,41 @@ async def cmd_team(message: Message):
 @router.message(Command("rescue"))
 @router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ", "🆘 کمک و امداد اضطراری", "🆘 امداد"]))
 async def cmd_rescue(message: Message, bot: Bot):
-    """
-    Safety emergency alert. Logs alert to DB, notifies admin immediately, reassuring user.
-    Unblocked under all conditions.
-    """
+    """Always-available safety alert; red-light gameplay never overrides real lighting."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     caller_name = guest.get("full_name") if guest else (message.from_user.full_name or str(message.from_user.id))
     details = f"درخواست امداد از طرف {caller_name}"
     alert_num = await database.record_rescue_alert(message.from_user.id, details=details)
 
-    if config.ADMIN_USER_ID != 0:
+    alert_sent = False
+    if config.ADMIN_USER_ID:
         try:
             await bot.send_message(
                 chat_id=config.ADMIN_USER_ID,
                 text=(
-                    f"🚨 **[هشدار اضطراری /rescue]**\n\n"
-                    f"👤 **مهمان:** {caller_name} (`{message.from_user.id}`)\n"
-                    f"🔢 **هشدار شماره:** {alert_num}\n"
-                    f"⏱ **زمان:** {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}"
+                    "🚨 **[درخواست اضطراری باغ سرهنگ]**\n\n"
+                    f"مهمان: {caller_name} ({message.from_user.id})\n"
+                    f"شماره‌ی درخواست: {alert_num}\n"
+                    f"جزئیات: {details}\n"
+                    f"زمان: {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}\n\n"
+                    "فوراً حضوری وضعیت مهمان را بررسی کنید و روشنایی ایمن مسیرها را فعال کنید."
                 )
             )
+            alert_sent = True
         except Exception:
-            pass
+            alert_sent = False
 
-    reassuring_msg = (
-        "🔴 **[قانون تاریکی مطلق باغ]**\n\n"
-        "طبق سناریوی عمارت، هیچ نوری از داخل سالن برای حیاط روشن نخواهد شد.\n"
-        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند.\n\n"
-        "🆘 **پیام امداد شما به میزبان و تیم پشتیبانی عمارت مخابره شد.**\n"
-        "آرامش خود را حفظ کنید. تیم اجرایی فوراً وضعیت شما را پیگیری می‌کند."
-    )
-    await message.answer(reassuring_msg)
+    if alert_sent:
+        await message.answer(
+            "🚨 درخواست شما ثبت و به مسئول اجرا ارسال شد. حرکت را متوقف کنید و نزدیک‌ترین مسئول حاضر را صدا بزنید. "
+            "مسیرها، اطراف استخر و خروجی‌ها باید روشن بمانند؛ فانوس سرخ جایگزین روشنایی ایمنی نیست."
+        )
+    else:
+        await message.answer(
+            "🚨 درخواست شما ثبت شد، اما ارسال خودکار به مسئول اجرا تأیید نشد. همین حالا حضوری مسئول اجرا را صدا بزنید. "
+            "حرکت را متوقف کنید و روشنایی ایمنی مسیر، پله‌ها، اطراف استخر و خروجی‌ها را برقرار کنید."
+        )
+
 
 @router.message(Command("accuse"))
 async def cmd_accuse(message: Message, bot: Bot):
