@@ -318,6 +318,11 @@ async def cmd_solve(message: Message, bot: Bot):
         await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
         return
 
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase != "midnight_investigation":
+        await message.answer("⏳ ثبت پاسخ معما فقط پس از اعلام رسمی آغاز تحقیقات نیمه‌شب فعال می‌شود.")
+        return
+
     team_num = guest.get("team_number")
     if not team_num or team_num < 1 or team_num > 4:
         await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید یا فاز کشف مدارک هنوز کلید نخورده است.")
@@ -422,56 +427,43 @@ async def cmd_solve(message: Message, bot: Bot):
 @router.message(Command("team"))
 @router.message(F.text == "🔦 تیم من در حیاط")
 async def cmd_team(message: Message):
-    """Shows player's midnight team, teammates, and secret traitor brief."""
+    """Reveal team assignment only after the host starts midnight."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با /start در سیستم ثبت‌نام کنید.")
         return
-
     if guest.get("role") != "role_player":
-        await message.answer(
-            "🍿 شما در گروه بلوندهای بی‌گناه هستید و شب را در سالن گرم همراه با فیلم و تنقلات سپری خواهید کرد."
-        )
+        await message.answer("🍿 شما در گروه بلوندهای بی‌گناه هستید و شب را در سالن گرم همراه فیلم و پذیرایی می‌گذرانید.")
+        return
+
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        await message.answer("⏳ تیم شما تا زمان اعلام رسمی شروع تحقیقات نیمه‌شب محرمانه می‌ماند.")
         return
 
     team_num = guest.get("team_number")
-    if not team_num and is_tester(message.from_user.id, message.from_user.username):
+    if is_tester(message.from_user.id, message.from_user.username) and team_num not in (1, 2, 3):
         await database.assign_tester_team(message.from_user.id, 1)
         guest = await database.get_guest_by_telegram_id(message.from_user.id)
-        team_num = 1
-
-    if not team_num:
-        await message.answer(
-            "⏳ **تیم‌های حیاط هنوز نهایی نشده‌اند.**\n"
-            "تیم‌بندی‌های حیاط در ساعت ۲۴:۰۰ هم‌زمان با خاموشی و آغاز بازی اعلام خواهد شد."
-        )
+        team_num = guest.get("team_number")
+    if team_num not in (1, 2, 3):
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید.")
         return
 
-    teammates = await database.get_team_members(team_num)
-    names = [m["full_name"] for m in teammates]
-    team_name = guest.get("team_name") or f"تیم {team_num}"
-
-    r1_solved = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-
-    traitor_text = ""
-    if guest.get("is_traitor") == 1:
-        traitor_text = (
-            "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
-            "هدف تو این است که تیمت در اتاق عمارت کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید! "
-            "سعی کن در تاریکی صدای تله‌ها را دربیاوری یا تیمت را قانع کنی که کلمه دوم رمز «مرگ» است نه «سایه»!"
-        )
-
+    members = await database.get_team_members(team_num)
+    names = [m["full_name"] for m in members]
+    labels = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
     msg = (
-        f"🔦 **اطلاعات تیم شما در بازی نیمه‌شب حیاط:**\n\n"
-        f"🏷 **نام تیم:** {team_name}\n"
-        f"👥 **هم‌تیمی‌های شما:** {'، '.join(names)}\n\n"
-        f"📊 **وضعیت معماها:**\n"
-        f"• پاکت اول: {'✅ حل شد' if r1_solved else '⏳ در حال جستجو'}\n"
-        f"• پاکت دوم: {'✅ حل شد' if r2_solved else '⏳ در حال جستجو'}\n\n"
-        f"💡 پاسخ هر پاکت را با دستور `/solve <پاسخ>` ارسال کنید."
-        f"{traitor_text}"
+        f"🔦 **پرونده‌ی محرمانه‌ی {labels[team_num]}**\n\n"
+        f"👥 هم‌تیمی‌ها: {'، '.join(names)}\n\n"
+        f"📄 پاکت اول: {'✅ ثبت شده' if r1 else '⏳ بررسی نشده'}\n"
+        f"📄 پاکت دوم: {'✅ ثبت شده' if r2 else '⏳ بررسی نشده'}\n\n"
+        "سه تیم مستقل رقابت می‌کنند؛ اطلاعات تیم‌های دیگر محرمانه است."
     )
+    if guest.get("is_traitor") == 1:
+        msg += "\n\n🐍 نقش محرمانه: در بازی اجتماعی مأموریت گمراه‌سازی به شما داده شده؛ ایمنی کسی را به خطر نیندازید."
     await message.answer(msg)
 
 @router.message(Command("rescue"))
