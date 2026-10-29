@@ -308,9 +308,20 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         guests = await database.get_all_guests()
         self.assertGreater(len(guests), 0)
 
+        # Seed a winning accusation to ensure reset clears the new tables too.
+        await database.record_team_accusation(
+            1, "نادر وثوق", 101,
+            "نمونه B و جراحت سر آرش",
+            "رسید R-17 و اختلاس مالی",
+            "نادر برای پنهان‌کردن اختلاس خود در صحنه حضور داشت و از افشای آن می‌ترسید."
+        )
+        self.assertIsNotNone(await database.get_game_winner())
+
         # Clean all guests
         deleted_count = await database.clean_all_guests()
         self.assertGreaterEqual(deleted_count, 1)
+        self.assertIsNone(await database.get_game_winner())
+        self.assertIsNone(await database.get_team_accusation_details(1))
 
         # Check roster is now empty
         after_guests = await database.get_all_guests()
