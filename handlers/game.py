@@ -680,12 +680,9 @@ async def cb_accuse(callback: CallbackQuery, bot: Bot | None = None):
 async def cmd_red_lantern(message: Message):
     """Sends the Red Lantern full-screen phone image + survival instructions."""
     caption = (
-        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-        "📱 **دستورالعمل مهم:** این تصویر را به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز کنید و نور صفحه را بالا ببرید.\n\n"
-        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
-        "سرهنگ در پاییز ۱۳۵۶ در تاریک‌خانه عکاسی‌اش به نور سرخ الفت داشته و به آن کاملاً نابیناست؛ "
-        "اما هرگونه نور سفید، چراغ‌قوه یا صفحه عادی گوشی فوراً سرهنگ را به سمت موقعیت شما کشانده و باعث شکار تیمتان می‌شود!\n\n"
-        "💡 در طول بازی نیمه‌شب در حیاط، این تصویر را باز نگه دارید و بدون هیچ صدای اضافه‌ای حرکت کنید."
+        "🔴 **فانوس سرخ دیجیتال — وسیله‌ی نمایشی اختیاری** 🕯\n\n"
+        "این تصویر جایگزین روشنایی واقعی نیست. مسیرهای عبور، پله‌ها، اطراف استخر و خروجی‌ها باید روشن بمانند. "
+        "برای حرکت ایمن از چراغ‌قوه یا نور گوشی استفاده کنید؛ هیچ نور سفیدی موجب جریمه یا حذف از بازی نمی‌شود."
     )
     kb = keyboards.midnight_action_kb()
     if LANTERN_PHOTO_FILE_ID:
@@ -705,11 +702,9 @@ async def cb_dl_lantern(callback: CallbackQuery):
     """Re-sends the red lantern photo for full-screen display."""
     await callback.answer("فانوس سرخ دیجیتال")
     caption = (
-        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-        "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی گوشی باز نگه دارید.\n\n"
-        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
-        "سرهنگ به نور سرخ تاریک‌خانه الفت داشته و به آن کاملاً نابیناست؛ "
-        "روشن کردن هرگونه چراغ سفید یا صفحه عادی گوشی = شکار فوری توسط روح سرهنگ!"
+        "🔴 **فانوس سرخ دیجیتال — وسیله‌ی نمایشی اختیاری** 🕯\n\n"
+        "این تصویر فقط برای فضاسازی است و جایگزین نور واقعی نیست. مسیرها، پله‌ها، اطراف استخر و خروجی‌ها روشن می‌مانند. "
+        "در صورت نیاز برای ایمنی از نور گوشی یا چراغ‌قوه استفاده کنید؛ هیچ جریمه‌ای برای نور سفید وجود ندارد."
     )
     kb = keyboards.midnight_action_kb()
     if LANTERN_PHOTO_FILE_ID:
@@ -733,14 +728,19 @@ async def cb_chk_team(callback: CallbackQuery):
         await callback.message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
 
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        await callback.message.answer("⏳ اطلاعات تیم پس از آغاز مرحله‌ی تحقیقات نیمه‌شب نمایش داده می‌شود.")
+        return
+
     team_num = guest.get("team_number")
-    if not team_num and is_tester(message.from_user.id, message.from_user.username):
-        await database.assign_tester_team(message.from_user.id, 1)
-        guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    if not team_num and is_tester(callback.from_user.id, callback.from_user.username):
+        await database.assign_tester_team(callback.from_user.id, 1)
+        guest = await database.get_guest_by_telegram_id(callback.from_user.id)
         team_num = 1
 
     if not team_num:
-        await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۲۴:۰۰ اعلام خواهد شد.")
+        await callback.message.answer("⏳ شما عضو یکی از سه تیم تحقیقاتی نیستید.")
         return
 
     teammates = await database.get_team_members(team_num)
