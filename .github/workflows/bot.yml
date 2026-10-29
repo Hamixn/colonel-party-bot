@@ -9,39 +9,47 @@ on:
     branches: [master]
 
 permissions:
-  actions: write
   contents: read
 
+# Run one instance at a time. The process exits gracefully before the next
+# five-hour schedule so encrypted SQLite state can be saved to Actions cache.
 concurrency:
   group: bot-runner
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 295
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Terminate older conflicting bot runs
+      - name: Restore encrypted SQLite state
+        uses: actions/cache@v4
+        with:
+          path: colonel_party.db.enc
+          key: colonel-party-db-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            colonel-party-db-
+
+      - name: Decrypt persisted database
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
         run: |
-          echo "Checking for older running workflows..."
-          RUNS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress" | \
-            jq -r ".workflow_runs[] | select(.id != ${{ github.run_id }}) | .id")
-          for rid in $RUNS; do
-            if [ -n "$rid" ] && [ "$rid" != "null" ]; then
-              echo "Cancelling older run: $rid"
-              curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
-                -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs/$rid/cancel"
-            fi
-          done
-          sleep 5
+          set -euo pipefail
+          if [ -z "$DB_ENCRYPTION_KEY" ]; then
+            echo "::error::Add DB_ENCRYPTION_KEY to repository Actions secrets before running the bot."
+            exit 1
+          fi
+          if [ -f colonel_party.db.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -salt \
+              -in colonel_party.db.enc -out colonel_party.db \
+              -pass env:DB_ENCRYPTION_KEY
+            echo "Restored encrypted game state."
+          else
+            echo "No prior encrypted database found; starting with a new SQLite file."
+          fi
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -54,14 +62,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Telegram Bot
+      - name: Run Telegram Bot and encrypt state on graceful restart
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_USER_ID: ${{ secrets.ADMIN_USER_ID || '102725917' }}
+          PLAYER_CAP: "15"
+          DB_PATH: colonel_party.db
+          DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
         run: |
-          TOKEN="${{ secrets.BOT_TOKEN }}"
-          if [ -z "$TOKEN" ]; then
-            TOKEN="8732768966:AAGThitIZG2IddxiyokS0PGCn_m_fHr-gRo"
+          set -euo pipefail
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "::error::BOT_TOKEN secret is required. No hardcoded token fallback is permitted."
+            exit 1
           fi
-          export BOT_TOKEN="$TOKEN"
-          export ADMIN_USER_ID="${{ secrets.ADMIN_USER_ID || '102725917' }}"
-          export PLAYER_CAP="20"
-          echo "🚀 Launching Colonel Party Bot on GitHub Actions Cloud..."
-          python bot.py
+          cleanup() {
+            if [ -f colonel_party.db ]; then
+              openssl enc -aes-256-cbc -pbkdf2 -salt \
+                -in colonel_party.db -out colonel_party.db.enc \
+                -pass env:DB_ENCRYPTION_KEY
+              echo "Encrypted SQLite state for the next runner."
+            fi
+          }
+          trap cleanup EXIT INT TERM
+          echo "🚀 Launching Colonel Party Bot with persistent encrypted SQLite state..."
+          set +e
+          timeout --signal=INT --kill-after=30s 290m python bot.py
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            exit "$status"
+          fi
+          exit 0
