@@ -481,7 +481,7 @@ async def cmd_rescue(message: Message, bot: Bot):
             await bot.send_message(
                 chat_id=config.ADMIN_USER_ID,
                 text=(
-                    "🚨 **[درخواست اضطراری باغ سرهنگ]**\n\n"
+                    "🚨 **[هشدار اضطراری / درخواست کمک — باغ سرهنگ]**\n\n"
                     f"مهمان: {caller_name} ({message.from_user.id})\n"
                     f"شماره‌ی درخواست: {alert_num}\n"
                     f"جزئیات: {details}\n"
@@ -637,7 +637,7 @@ async def cmd_accuse(message: Message, bot: Bot):
 async def cb_accuse(callback: CallbackQuery, bot: Bot | None = None):
     """Suspect buttons never submit an incomplete accusation."""
     if await database.is_deductions_closed():
-        await callback.answer("مهلت ثبت اتهام بسته شده است.", show_alert=True)
+        await callback.answer("مهلت ثبت اتهام توسط میزبان به پایان رسیده است.", show_alert=True)
         return
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
