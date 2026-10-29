@@ -119,6 +119,7 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
     # -------------------------------------------------------------------------
     async def test_rescue_unstarted_mode(self):
         """Verify /rescue functions when game is unstarted (no game_phase set)."""
+        await database.set_game_state("game_phase", "registration")
         bot = make_mock_bot()
         msg = make_mock_message(201, "/rescue")
         await handlers.game.cmd_rescue(msg, bot)
@@ -235,6 +236,8 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
     # -------------------------------------------------------------------------
     async def test_accuse_multiline_persian_with_punctuation(self):
         """Verify /accuse parses multi-line Persian text with colons, newlines, and Arabic letters."""
+        await database.set_game_state("team_1_riddle_1", "1")
+        await database.set_game_state("team_1_riddle_2", "1")
         bot = make_mock_bot()
 
         # Submission with Arabic 'ي', 'ك', 'ة', newlines, colons, and punctuation
@@ -263,6 +266,9 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_accuse_pipe_and_dash_delimiters(self):
         """Verify /accuse single-line submission using pipe '|' and dash ' - ' delimiters."""
+        for team_num in (2, 3):
+            await database.set_game_state(f"team_{team_num}_riddle_1", "1")
+            await database.set_game_state(f"team_{team_num}_riddle_2", "1")
         bot = make_mock_bot()
 
         # Team 2 single-line pipe submission
