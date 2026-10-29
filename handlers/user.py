@@ -88,7 +88,9 @@ async def send_existing_card(message_or_callback, guest: dict):
         )
         await target.answer(car_summary)
 
-VOICE_WELCOME_FILE_ID = "AwACAgEAAxkDAAPCat86qxc8Gwx9HWw9UX6EzooUtFkAAnwIAALxQwABRxvHQRnRpZyxPQQ"
+# Local cinematic voice file for True-Crime narrative
+WELCOME_VOICE_OGG = Path("assets/audio/welcome_narration.ogg")
+WELCOME_VOICE_MP3 = Path("assets/audio/welcome_narration.mp3")
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -105,29 +107,17 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(RegistrationStates.waiting_for_name)
 
-    # Send dramatic voice narration if available
-    if VOICE_WELCOME_FILE_ID:
+    # Send dramatic voice narration
+    voice_path = WELCOME_VOICE_OGG if WELCOME_VOICE_OGG.exists() else WELCOME_VOICE_MP3
+    if voice_path.exists():
         try:
+            voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.ogg")
             await message.answer_voice(
-                voice=VOICE_WELCOME_FILE_ID,
+                voice=voice_file,
                 caption="🎧 **صوت محرمانه‌ی پرونده‌ی باغ سرهنگ (شنیدن با هندزفری):**"
             )
         except Exception as e:
-            print(f"Fallback from cached voice ID due to: {e}")
-    else:
-        voice_path = Path("assets/audio/welcome_narration.ogg")
-        if not voice_path.exists():
-            voice_path = Path("assets/audio/welcome_narration.mp3")
-
-        if voice_path.exists():
-            try:
-                voice_file = FSInputFile(str(voice_path), filename="colonel_garden_narration.ogg")
-                await message.answer_voice(
-                    voice=voice_file,
-                    caption="🎧 **صوت محرمانه‌ی پرونده‌ی باغ سرهنگ (شنیدن با هندزفری):**"
-                )
-            except Exception as e:
-                print(f"Fallback to text message due to: {e}")
+            print(f"Error sending welcome voice: {e}")
 
     # Send the full welcome story text with the registration button
     await message.answer(
