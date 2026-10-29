@@ -215,6 +215,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_valid_submission_returns_neutral_response(self):
         """Valid accusation naming Nader Vosough returns a neutral confirmation without disclosing win."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_1_riddle_{n}", "1")
         bot = make_mock_bot()
         msg = make_mock_message(
             101,
@@ -241,6 +243,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_non_winning_submission_returns_identical_neutral_response(self):
         """Non-winning accusation (e.g. naming wrong suspect) receives the same neutral confirmation."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_2_riddle_{n}", "1")
         bot = make_mock_bot()
         msg = make_mock_message(
             102,
@@ -261,6 +265,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_revision_lifecycle(self):
         """Accusations can be revised freely until deductions are closed."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_1_riddle_{n}", "1")
         bot = make_mock_bot()
         # Initial submission
         msg1 = make_mock_message(101, "/accuse نادر وثوق")
@@ -625,11 +631,11 @@ class TestE2ERealWorldScenarios(BaseE2ETestCase):
 
     async def test_scenario_3_premature_accusation_followed_by_complete_revision(self):
         """
-        Scenario 3: Premature/insufficient accusation rejected, followed by complete revision winning.
-        Team 3 first names Shirin Nouri (wrong suspect).
-        Team 3 names Nader but with no evidence points.
-        Team 3 provides witness statements + 5-person archive check -> Wins!
+        Scenario 3: Partial / wrong accusations remain neutral; a complete revision can win.
+        Team 3 names Shirin, then Nader without evidence, and finally provides two dossier points.
         """
+        for n in (1, 2):
+            await database.set_game_state(f"team_3_riddle_{n}", "1")
         bot = make_mock_bot()
 
         # 1. Wrong suspect
