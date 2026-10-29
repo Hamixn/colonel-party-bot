@@ -251,6 +251,34 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         imm_buf = card_generator.generate_immunity_card("سمیرا (Samira)", "310")
         self.assertGreater(len(imm_buf.getvalue()), 10000)
 
+    async def test_tester_flow_and_team_switching(self):
+        """Verifies that Hamixon (102725917) can switch teams and reset riddles freely."""
+        # Pre-seeded in setUp: 101, 102, 103. Let's seed Hamixon (102725917)
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name)
+                VALUES (102725917, 'Hamixon', 'حامد', 'role_player', 1, 'تیم ۱ (خون)')
+            """)
+            await db.commit()
+
+        # Check Team 1 solve
+        res1 = await database.check_team_riddle(102725917, "خون")
+        self.assertEqual(res1["status"], "riddle_solved")
+
+        # Switch to Team 2
+        await database.assign_tester_team(102725917, 2)
+        guest = await database.get_guest_by_telegram_id(102725917)
+        self.assertEqual(guest["team_number"], 2)
+
+        # Check Team 2 solve
+        res2 = await database.check_team_riddle(102725917, "سایه")
+        self.assertEqual(res2["status"], "riddle_solved")
+
+        # Reset Team 2 riddles
+        await database.reset_team_riddles(2)
+        r2_state = await database.get_game_state("team_2_riddle_1")
+        self.assertEqual(r2_state, "0")
+
 
 if __name__ == "__main__":
     unittest.main()

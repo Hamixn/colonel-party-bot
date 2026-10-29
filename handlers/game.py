@@ -25,16 +25,32 @@ LANTERN_PHOTO_FILE_ID = "AgACAgEAAxkDAAOVat7mnZbQOE2oLNWQTFy0mWEbNVIAAhANaxvxQ_h
 TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
 MISSION_UNLOCK_TIME = datetime(2026, 10, 29, 19, 30, 0, tzinfo=TEHRAN_TZ)
 
-async def is_mission_unlocked() -> bool:
-    """Checks if missions are unlocked (past 29 Oct 19:30 Tehran or forced by admin)."""
+TESTER_IDS = {102725917}
+TESTER_USERNAMES = {"hamixon", "hamixn"}
+
+def is_tester(user_id: int, username: str | None = None) -> bool:
+    if user_id in TESTER_IDS:
+        return True
+    if config.ADMIN_USER_ID != 0 and user_id == config.ADMIN_USER_ID:
+        return True
+    if username and username.lower().lstrip("@") in TESTER_USERNAMES:
+        return True
+    return False
+
+async def is_mission_unlocked(user_id: int | None = None, username: str | None = None) -> bool:
+    """Checks if missions are unlocked (past 29 Oct 19:30 Tehran or forced by admin or tester)."""
+    if user_id and is_tester(user_id, username):
+        return True
     forced = await database.get_game_state("force_unlock_missions", "0")
     if forced == "1":
         return True
     now = datetime.now(TEHRAN_TZ)
     return now >= MISSION_UNLOCK_TIME
 
-async def can_change_role() -> bool:
+async def can_change_role(user_id: int | None = None, username: str | None = None) -> bool:
     """Checks if guests can still change their role (before 29 Oct 19:30 Tehran)."""
+    if user_id and is_tester(user_id, username):
+        return True
     forced_lock = await database.get_game_state("force_lock_roles", "0")
     if forced_lock == "1":
         return False
@@ -74,6 +90,12 @@ async def cmd_mission(message: Message):
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
 
+    # Auto-assign tester to Team 1 if not yet configured
+    if is_tester(message.from_user.id, message.from_user.username):
+        if guest.get("role") != "role_player" or not guest.get("team_number"):
+            await database.assign_tester_team(message.from_user.id, guest.get("team_number") or 1)
+            guest = await database.get_guest_by_telegram_id(message.from_user.id)
+
     if guest.get("role") != "role_player":
         await message.answer(
             "🥂 **مخصوص همراهان مهمانی (بلوندهای بی‌گناه):**\n\n"
@@ -82,8 +104,8 @@ async def cmd_mission(message: Message):
         )
         return
 
-    # Check if missions are unlocked (19:30 to 23:50)
-    if not await is_mission_unlocked():
+    # Check if missions are unlocked (19:30 to 23:50 or tester)
+    if not await is_mission_unlocked(message.from_user.id, message.from_user.username):
         now = datetime.now(TEHRAN_TZ)
         diff = MISSION_UNLOCK_TIME - now
         total_seconds = max(0, int(diff.total_seconds()))
@@ -242,6 +264,12 @@ async def cmd_solve(message: Message, bot: Bot):
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
 
+    # Auto-assign tester to Team 1 if not yet configured
+    if is_tester(message.from_user.id, message.from_user.username):
+        if guest.get("role") != "role_player" or not guest.get("team_number"):
+            await database.assign_tester_team(message.from_user.id, guest.get("team_number") or 1)
+            guest = await database.get_guest_by_telegram_id(message.from_user.id)
+
     if guest.get("role") != "role_player":
         await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
         return
@@ -361,6 +389,11 @@ async def cmd_team(message: Message):
         return
 
     team_num = guest.get("team_number")
+    if not team_num and is_tester(message.from_user.id, message.from_user.username):
+        await database.assign_tester_team(message.from_user.id, 1)
+        guest = await database.get_guest_by_telegram_id(message.from_user.id)
+        team_num = 1
+
     if not team_num:
         await message.answer(
             "⏳ **تیم‌های حیاط هنوز نهایی نشده‌اند.**\n"
@@ -482,6 +515,11 @@ async def cb_chk_team(callback: CallbackQuery):
         return
 
     team_num = guest.get("team_number")
+    if not team_num and is_tester(message.from_user.id, message.from_user.username):
+        await database.assign_tester_team(message.from_user.id, 1)
+        guest = await database.get_guest_by_telegram_id(message.from_user.id)
+        team_num = 1
+
     if not team_num:
         await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۲۴:۰۰ اعلام خواهد شد.")
         return

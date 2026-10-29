@@ -65,6 +65,25 @@ async def init_db() -> None:
             if col_name not in columns:
                 await db.execute(f"ALTER TABLE guests ADD COLUMN {col_name} {col_type}")
 
+        # Ensure Hamixon (102725917) is pre-configured in Team 1 and missions are unlocked for testing
+        async with db.execute("SELECT id, team_number FROM guests WHERE telegram_id = 102725917") as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                await db.execute("""
+                    INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name, has_car, serial_number, soul_pin, social_mission_id)
+                    VALUES (102725917, 'Hamixon', 'حامد', 'role_player', 1, 'تیم ۱ (خون)', 0, 53, '310', 1)
+                """)
+            else:
+                await db.execute("""
+                    UPDATE guests 
+                    SET telegram_username = 'Hamixon',
+                        role = 'role_player',
+                        team_number = COALESCE(team_number, 1),
+                        team_name = COALESCE(team_name, 'تیم ۱ (خون)')
+                    WHERE telegram_id = 102725917
+                """)
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('force_unlock_missions', '1')")
+
         await db.commit()
 
 async def get_guest_by_telegram_id(telegram_id: int) -> Optional[Dict[str, Any]]:
@@ -608,6 +627,55 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
         "team_number": team_num,
         "response_text": game.WRONG_ANSWER_TEXT
     }
+
+async def assign_tester_team(telegram_id: int, team_number: int) -> Dict[str, Any]:
+    """Assigns or switches a tester's team (1, 2, 3, or 4)."""
+    team_names = {
+        1: "تیم ۱ (خون)",
+        2: "تیم ۲ (سایه)",
+        3: "تیم ۳ (سکوت)",
+        4: "تیم ۴ (آینه)"
+    }
+    t_name = team_names.get(team_number, f"تیم {team_number}")
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE guests 
+            SET team_number = ?, team_name = ?, role = 'role_player'
+            WHERE telegram_id = ?
+        """, (team_number, t_name, telegram_id))
+        await db.commit()
+    return {"team_number": team_number, "team_name": t_name}
+
+async def reset_team_riddles(team_number: int | None = None) -> bool:
+    """Resets solved riddle states for testing."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        if team_number:
+            await db.execute("""
+                UPDATE guests 
+                SET riddle_1_solved = 0, riddle_2_solved = 0
+                WHERE team_number = ?
+            """, (team_number,))
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_riddle_1", "0")
+            )
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_riddle_2", "0")
+            )
+        else:
+            await db.execute("UPDATE guests SET riddle_1_solved = 0, riddle_2_solved = 0, is_immune = 0, got_stickered = 0")
+            for i in range(1, 5):
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                    (f"team_{i}_riddle_1", "0")
+                )
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                    (f"team_{i}_riddle_2", "0")
+                )
+        await db.commit()
+    return True
 
 async def get_reveal_manifest() -> Dict[str, Any]:
     """Returns hunters and traitors for the 02:00 AM reveal."""

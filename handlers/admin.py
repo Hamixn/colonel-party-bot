@@ -14,11 +14,18 @@ import game
 
 router = Router()
 
-def is_admin(user_id: int) -> bool:
-    """Checks if the user ID matches the configured admin ID."""
-    if config.ADMIN_USER_ID == 0:
-        return False
-    return user_id == config.ADMIN_USER_ID
+TESTER_IDS = {102725917}
+TESTER_USERNAMES = {"hamixon", "hamixn"}
+
+def is_admin(user_id: int, username: str | None = None) -> bool:
+    """Checks if the user ID matches the configured admin ID or authorized tester (Hamixon)."""
+    if user_id in TESTER_IDS:
+        return True
+    if username and username.lower().lstrip("@") in TESTER_USERNAMES:
+        return True
+    if config.ADMIN_USER_ID != 0 and user_id == config.ADMIN_USER_ID:
+        return True
+    return False
 
 @router.message(Command("admin"))
 async def cmd_admin_help(message: Message):
@@ -464,3 +471,82 @@ async def cmd_lock_missions(message: Message):
         return
     await database.set_game_state("force_unlock_missions", "0")
     await message.answer("🔒 ماموریت‌های مخفی مجدداً قفل شدند تا ساعت ۱۸:۰۰ روز ۲۹ اکتبر.")
+
+@router.message(Command("test"))
+@router.message(Command("tester"))
+async def cmd_tester_panel(message: Message):
+    """Interactive testing instructions and controls for Hamixon."""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    if not is_admin(user_id, username):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    guest = await database.get_guest_by_telegram_id(user_id)
+    t_num = guest.get("team_number", 1) if guest else 1
+    t_name = guest.get("team_name", f"تیم {t_num}") if guest else "تیم ۱ (خون)"
+    r1 = await database.get_game_state(f"team_{t_num}_riddle_1", "0")
+    r2 = await database.get_game_state(f"team_{t_num}_riddle_2", "0")
+
+    panel_text = (
+        f"🧪 **[پنل اختصاصی تست جریان کامل بازی برای @{username or 'hamixon'}]** 🎮\n\n"
+        f"👤 **مهمان:** {guest.get('full_name') if guest else 'حامد'} | **نقش:** بازیکن پرونده\n"
+        f"🏷 **تیم فعلی:** {t_name} (شماره {t_num})\n"
+        f"🧩 **وضعیت پاکت‌ها:** پاکت ۱: {'✅ ثبت‌شده' if r1 == '1' else '⏳ باز'} | پاکت ۲: {'✅ ثبت‌شده' if r2 == '1' else '⏳ باز'}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "🛠 **راهنمای گام‌به‌گام تست:**\n\n"
+        "۱. 📜 **تست ماموریت اجتماعی و آلیبای:**\n"
+        "   دستور `/mission` — مشاهده ماموریت، زدن دکمه‌ی «ثبت آلیبای» و «استیکر خوردم».\n\n"
+        "۲. 🔦 **مشاهده اطلاعات تیم:**\n"
+        "   دستور `/team` — اطلاعات تیم شما و ماموریت خائن.\n\n"
+        "۳. 🧩 **تست حل معما با دستور `/solve <پاسخ>`:**\n"
+        "   • تیم ۱: `/solve خون` و `/solve 1356`\n"
+        "   • تیم ۲: `/solve سایه` و `/solve 2910`\n"
+        "   • تیم ۳: `/solve سکوت` و `/solve 5`\n"
+        "   *(تست کدهای تیم دیگر هشدار تفکیک تیم‌ها را نمایش می‌دهد)*\n\n"
+        "۴. 🔄 **تغییر تیم تست:**\n"
+        "   • `/test_team 1` — سوئیچ به تیم ۱ (خون)\n"
+        "   • `/test_team 2` — سوئیچ به تیم ۲ (سایه)\n"
+        "   • `/test_team 3` — سوئیچ به تیم ۳ (سکوت)\n\n"
+        "۵. ♻️ **ریست معماها جهت تست مجدد:**\n"
+        "   دستور `/test_reset` — پاک کردن پاسخ‌ها و باز کردن مجدد پاکت‌ها.\n\n"
+        "۶. ⚠️ **تست آلارم بحران ۲۳:۵۰:**\n"
+        "   دستور `/broadcast_crisis`\n\n"
+        "۷. 🕯 **تست سکانس فینال تاریکخانه ۰۱:۱۰:**\n"
+        "   دستور `/trigger_finale`\n\n"
+        "۸. 🎭 **تست افشای نهایی ۰۲:۰۰:**\n"
+        "   دستور `/reveal_traitors`\n"
+    )
+    await message.answer(panel_text)
+
+@router.message(Command("test_team"))
+async def cmd_test_team(message: Message):
+    """Switches tester's team to 1, 2, or 3."""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    if not is_admin(user_id, username):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    arg = message.text.partition(" ")[2].strip()
+    if arg not in ["1", "2", "3"]:
+        await message.answer("⚠️ لطفاً شماره تیم را وارد کنید (۱ یا ۲ یا ۳):\n`/test_team 1` یا `/test_team 2` یا `/test_team 3`")
+        return
+
+    t_num = int(arg)
+    res = await database.assign_tester_team(user_id, t_num)
+    await message.answer(f"✅ تیم شما با موفقیت به **{res['team_name']}** تغییر یافت!\nاکنون با دستور `/team` و `/solve` معماهای این تیم را تست کنید.")
+
+@router.message(Command("test_reset"))
+async def cmd_test_reset(message: Message):
+    """Resets riddles for tester's current team."""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    if not is_admin(user_id, username):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    guest = await database.get_guest_by_telegram_id(user_id)
+    t_num = guest.get("team_number", 1) if guest else 1
+    await database.reset_team_riddles(t_num)
+    await message.answer(f"♻️ وضعیت معماهای **تیم {t_num}** ریست شد. اکنون می‌توانید دوباره با `/solve` پاکت‌ها را حل کنید.")
