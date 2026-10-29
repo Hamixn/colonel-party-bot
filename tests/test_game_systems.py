@@ -571,6 +571,15 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(assigned), {"shirin", "keyvan", "fereydoun", "nader"})
         self.assertIsNone(assigned["nader"]["team_number"])
         self.assertEqual(assigned["nader"]["is_traitor"], 0)
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.executemany("""
+                INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name)
+                VALUES (?, ?, ?, 'role_player', 1, 'تیم خون')
+            """, [
+                (tid, f"investigator_{tid}", f"بازرس {tid}")
+                for tid in range(106, 115)
+            ])
+            await db.commit()
         teams = await database.start_midnight_game()
         self.assertEqual(set(teams), {1, 2, 3})
         for team in teams.values():
