@@ -534,12 +534,6 @@ async def cmd_accuse(message: Message, bot: Bot):
         await message.answer("⏳ ثبت اتهام فقط در زمان رسمی تحقیقات نیمه‌شب فعال است.")
         return
 
-    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-    if not (r1 and r2):
-        await message.answer("🔎 ابتدا هر دو پاکت اختصاصی تیم خود را حل کنید؛ سپس اتهام مستدل ثبت می‌شود.")
-        return
-
     raw_payload = message.text.partition(" ")[2].strip()
     if not raw_payload:
         current_acc = await database.get_team_accusation(team_num)
@@ -555,6 +549,12 @@ async def cmd_accuse(message: Message, bot: Bot):
             f"{curr_str}"
         )
         await message.answer(help_text, reply_markup=keyboards.accuse_suspects_kb())
+        return
+
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await message.answer("🔎 ابتدا هر دو پاکت اختصاصی تیم خود را حل کنید؛ سپس اتهام مستدل ثبت می‌شود.")
         return
 
     # Parse payload
