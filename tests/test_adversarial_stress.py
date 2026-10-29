@@ -203,6 +203,9 @@ class TestAdversarialConcurrentAccuse(BaseAdversarialTestCase):
 
     async def test_simultaneous_three_team_winning_accusations(self):
         """Team 1, Team 2, and Team 3 all submit valid, fully supported accusations at the exact same instant."""
+        for team_num in (1, 2, 3):
+            await database.set_game_state(f"team_{team_num}_riddle_1", "1")
+            await database.set_game_state(f"team_{team_num}_riddle_2", "1")
         # Team 1: 101, Team 2: 201, Team 3: 301
         payload_t1 = (
             "/accuse نادر وثوق\n"
@@ -257,11 +260,14 @@ class TestAdversarialConcurrentAccuse(BaseAdversarialTestCase):
 
     async def test_non_winning_team_cannot_overwrite_winner_on_revision(self):
         """Team 2 wins first. Team 1 submits 5 rapid revisions: winner and timestamp remain intact."""
+        for team_num in (1, 2):
+            await database.set_game_state(f"team_{team_num}_riddle_1", "1")
+            await database.set_game_state(f"team_{team_num}_riddle_2", "1")
         # Step 1: Team 2 wins
         bot = make_mock_bot()
         m_t2 = make_mock_message(
             201,
-            "/accuse نادر وثوق\nسایه در شیشه پنجره ساعت 22:19\nتناقض زمانی با ادعای خروج قبل از ۲۲"
+            "/accuse نادر وثوق\nتناقض با ادعای خروج پیش از ۲۲:۰۰\nسایه در شیشه پنجره ساعت 22:19\nتناقض زمانی با ادعای خروج قبل از ۲۲"
         )
         await handlers.game.cmd_accuse(m_t2, bot)
         initial_win_ts = await database.get_game_state("winning_timestamp")
@@ -272,7 +278,7 @@ class TestAdversarialConcurrentAccuse(BaseAdversarialTestCase):
         for i in range(1, 6):
             m_t1 = make_mock_message(
                 101,
-                f"/accuse نادر وثوق\nجراحت سر و خون استخر\nحساب 84102 اختلاس نسخه {i}"
+                f"/accuse نادر وثوق\nانگیزه: پنهان‌کردن اختلاس\nجراحت سر و خون استخر\nحساب 84102 اختلاس نسخه {i}"
             )
             await handlers.game.cmd_accuse(m_t1, bot)
             self.assertEqual(m_t1.answers[0], texts.ACCUSATION_RECORDED_NEUTRAL)
@@ -283,10 +289,12 @@ class TestAdversarialConcurrentAccuse(BaseAdversarialTestCase):
 
     async def test_winning_team_revision_preserves_original_timestamp(self):
         """Team 1 wins. Team 1 revises 3 times: winner status preserved, original timestamp never modified."""
+        await database.set_game_state("team_1_riddle_1", "1")
+        await database.set_game_state("team_1_riddle_2", "1")
         bot = make_mock_bot()
         m1 = make_mock_message(
             101,
-            "/accuse نادر وثوق\nجراحت سر و خون استخر\nحساب 84102 اختلاس"
+            "/accuse نادر وثوق\nانگیزه: پنهان‌کردن اختلاس\nجراحت سر و خون استخر\nحساب 84102 اختلاس"
         )
         await handlers.game.cmd_accuse(m1, bot)
         orig_win_ts = await database.get_game_state("winning_timestamp")
@@ -298,7 +306,7 @@ class TestAdversarialConcurrentAccuse(BaseAdversarialTestCase):
         for i in range(1, 4):
             m_rev = make_mock_message(
                 101,
-                f"/accuse نادر وثوق\nجراحت سر و خون استخر ویرایش {i}\nحساب 84102 اختلاس"
+                f"/accuse نادر وثوق\nانگیزه: پنهان‌کردن اختلاس\nجراحت سر و خون استخر ویرایش {i}\nحساب 84102 اختلاس"
             )
             await handlers.game.cmd_accuse(m_rev, bot)
             # Timestamp must NEVER change
