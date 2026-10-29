@@ -60,6 +60,10 @@ async def init_db() -> None:
             ("riddle_2_solved", "INTEGER DEFAULT 0"),
             ("got_stickered", "INTEGER DEFAULT 0"),
             ("stickered_at", "TEXT"),
+            ("character_role", "TEXT DEFAULT NULL"),
+            ("alibi_shields", "INTEGER DEFAULT 0"),
+            ("alibi_shield_used", "INTEGER DEFAULT 0"),
+            ("accusation", "TEXT DEFAULT NULL"),
         ]
         for col_name, col_type in new_columns:
             if col_name not in columns:
@@ -216,15 +220,99 @@ async def set_guest_role(telegram_id: int, role: str) -> Optional[Dict[str, Any]
         await db.commit()
     return await get_guest_by_telegram_id(telegram_id)
 
-async def set_mission_completed(telegram_id: int) -> bool:
-    """Awards immunity to player upon social mission completion."""
+async def grant_alibi_shield(telegram_id: int) -> Dict[str, Any]:
+    """
+    Grants at most ONE available alibi shield per player upon mission completion.
+    Does not grant duplicate or unlimited shields.
+    """
+    guest = await get_guest_by_telegram_id(telegram_id)
+    if not guest or guest.get("role") != "role_player":
+        return {"status": "not_player", "shields": 0}
+
+    current_shields = guest.get("alibi_shields") or 0
+    if current_shields >= 1:
+        return {"status": "already_has_shield", "shields": current_shields}
+
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE guests SET is_immune = 1 WHERE telegram_id = ?",
+            "UPDATE guests SET alibi_shields = 1, is_immune = 1 WHERE telegram_id = ?",
             (telegram_id,)
         )
         await db.commit()
-        return True
+    return {"status": "granted", "shields": 1}
+
+async def use_alibi_shield(telegram_id: int) -> Dict[str, Any]:
+    """
+    Consumes the one-use alibi shield to cancel a physical sticker.
+    """
+    guest = await get_guest_by_telegram_id(telegram_id)
+    if not guest:
+        return {"status": "not_found"}
+
+    current_shields = guest.get("alibi_shields") or 0
+    if current_shields <= 0:
+        return {"status": "no_shield"}
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE guests 
+            SET alibi_shields = 0, 
+                alibi_shield_used = 1, 
+                got_stickered = 0, 
+                is_immune = 0 
+            WHERE telegram_id = ?
+        """, (telegram_id,))
+        await db.commit()
+    return {"status": "consumed"}
+
+async def set_mission_completed(telegram_id: int) -> bool:
+    """Awards alibi shield to player upon social mission completion."""
+    res = await grant_alibi_shield(telegram_id)
+    return res.get("status") in ("granted", "already_has_shield")
+
+async def record_rescue_alert(telegram_id: int, guest_name: str) -> int:
+    """
+    Logs and increments safety rescue alert count.
+    Never blocks or caps safety requests.
+    """
+    current = int(await get_game_state("rescue_alert_count", "0"))
+    new_count = current + 1
+    await set_game_state("rescue_alert_count", str(new_count))
+    from datetime import datetime, timezone
+    await set_game_state("last_rescue_alert_at", datetime.now(timezone.utc).isoformat())
+    await set_game_state("last_rescue_alert_by", f"{guest_name} ({telegram_id})")
+    return new_count
+
+async def record_team_accusation(team_number: int, suspect: str, telegram_id: int) -> Dict[str, Any]:
+    """
+    Records an accusation for the team at the central deduction table.
+    Teams can revise their theory until the host closes deduction.
+    """
+    cleaned = suspect.strip()
+    await set_game_state(f"team_{team_number}_accusation", cleaned)
+    await set_game_state(f"team_{team_number}_accusation_by", str(telegram_id))
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE guests SET accusation = ? WHERE team_number = ?", (cleaned, team_number))
+        await db.commit()
+    return {
+        "status": "recorded",
+        "team_number": team_number,
+        "suspect": cleaned
+    }
+
+async def get_team_accusation(team_number: int) -> Optional[str]:
+    """Retrieves current recorded accusation for a team."""
+    val = await get_game_state(f"team_{team_number}_accusation", "")
+    return val if val else None
+
+async def get_all_accusations() -> Dict[int, str]:
+    """Retrieves all submitted accusations across all teams."""
+    results = {}
+    for t_num in (1, 2, 3):
+        acc = await get_team_accusation(t_num)
+        if acc:
+            results[t_num] = acc
+    return results
 
 async def tag_possession(target_pin: str, hunter_name: str) -> Dict[str, Any]:
     """Attempts to possess a guest by PIN."""
@@ -260,7 +348,7 @@ async def count_role(role: str) -> int:
             row = await cursor.fetchone()
             return row[0] if row else 0
 
-async def get_stats() -> Dict[str, int]:
+async def get_stats() -> Dict[str, Any]:
     """Returns party registration and live game statistics."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT COUNT(*) FROM guests") as c:
@@ -279,6 +367,28 @@ async def get_stats() -> Dict[str, int]:
             possessed = (await c.fetchone())[0]
         async with db.execute("SELECT COUNT(*) FROM guests WHERE got_stickered = 1") as c:
             stickered = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM guests WHERE alibi_shields > 0") as c:
+            alibi_available = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM guests WHERE alibi_shield_used = 1") as c:
+            alibi_used = (await c.fetchone())[0]
+
+    # Team stats
+    teams_stats = {}
+    for t in (1, 2, 3):
+        members = await get_team_members(t)
+        r1 = (await get_game_state(f"team_{t}_riddle_1", "0")) == "1"
+        r2 = (await get_game_state(f"team_{t}_riddle_2", "0")) == "1"
+        acc = await get_team_accusation(t)
+        teams_stats[t] = {
+            "size": len(members),
+            "riddle_1_solved": r1,
+            "riddle_2_solved": r2,
+            "accusation_submitted": bool(acc)
+        }
+
+    accusations = await get_all_accusations()
+    rescue_alerts = int(await get_game_state("rescue_alert_count", "0"))
+    phase = await get_game_state("game_phase", "registration")
 
     return {
         "total": total,
@@ -288,7 +398,13 @@ async def get_stats() -> Dict[str, int]:
         "hunters": hunters,
         "immune": immune,
         "possessed": possessed,
-        "stickered": stickered
+        "stickered": stickered,
+        "alibi_shields_available": alibi_available,
+        "alibi_shields_used": alibi_used,
+        "teams": teams_stats,
+        "accusations_count": len(accusations),
+        "rescue_alerts": rescue_alerts,
+        "phase": phase
     }
 
 async def mark_stickered(telegram_id: int) -> bool:
@@ -372,14 +488,112 @@ async def get_hunters() -> List[Dict[str, Any]]:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
-async def start_midnight_game() -> Dict[int, Dict[str, Any]]:
+async def assign_special_character_roles(force_reassign: bool = False) -> Dict[str, Dict[str, Any]]:
     """
-    Starts Phase 3 (The 24:00 Midnight Game):
-    1. Splits all players into 4 teams (تیم ۱ to تیم ۴).
+    Assigns the 4 canonical character roles among active mystery players:
+    1. Shirin Nouri (witness 1, sticker carrier): Team 1 member
+    2. Keyvan Rastegar (witness 2, sticker carrier): Team 2 member
+    3. Dr. Fereydoun Mehr (witness 3, sticker carrier): Team 3 member
+    4. Nader Vosough (actual killer, hidden role): active player in any team, distinct from witnesses.
+    Never assigns to role_blonde.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Check if already assigned
+        if not force_reassign:
+            async with db.execute("SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'") as cursor:
+                rows = [dict(r) for r in await cursor.fetchall()]
+                existing = {r["character_role"]: r for r in rows}
+                if len(existing) >= 4 and all(k in existing for k in ["shirin", "keyvan", "fereydoun", "nader"]):
+                    return existing
+
+        # Get active players
+        async with db.execute("SELECT * FROM guests WHERE role = 'role_player' ORDER BY id ASC") as cursor:
+            players = [dict(r) for r in await cursor.fetchall()]
+
+        if not players:
+            return {}
+
+        # Reset existing character roles
+        await db.execute("UPDATE guests SET character_role = NULL, is_hunter = 0")
+
+        # Separate players by team (1, 2, 3)
+        t1_players = [p for p in players if p.get("team_number") == 1]
+        t2_players = [p for p in players if p.get("team_number") == 2]
+        t3_players = [p for p in players if p.get("team_number") == 3]
+
+        if not t1_players or not t2_players or not t3_players:
+            # Distribute players across 3 teams first
+            for idx, p in enumerate(players):
+                t_num = (idx % 3) + 1
+                t_names = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
+                await db.execute("UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?", (t_num, t_names[t_num], p["id"]))
+                p["team_number"] = t_num
+                p["team_name"] = t_names[t_num]
+
+            t1_players = [p for p in players if p.get("team_number") == 1]
+            t2_players = [p for p in players if p.get("team_number") == 2]
+            t3_players = [p for p in players if p.get("team_number") == 3]
+
+        shirin = random.choice(t1_players) if t1_players else players[0]
+        keyvan = random.choice(t2_players) if t2_players else players[min(1, len(players) - 1)]
+        fereydoun = random.choice(t3_players) if t3_players else players[min(2, len(players) - 1)]
+
+        # Nader must be distinct from the 3 witnesses
+        candidates = [p for p in players if p["id"] not in {shirin["id"], keyvan["id"], fereydoun["id"]}]
+        nader = random.choice(candidates) if candidates else random.choice(players)
+
+        # Update in database (witnesses are sticker carriers: is_hunter=1)
+        await db.execute("UPDATE guests SET character_role = 'shirin', is_hunter = 1 WHERE id = ?", (shirin["id"],))
+        await db.execute("UPDATE guests SET character_role = 'keyvan', is_hunter = 1 WHERE id = ?", (keyvan["id"],))
+        await db.execute("UPDATE guests SET character_role = 'fereydoun', is_hunter = 1 WHERE id = ?", (fereydoun["id"],))
+        await db.execute("UPDATE guests SET character_role = 'nader', is_hunter = 0 WHERE id = ?", (nader["id"],))
+        await db.commit()
+
+        shirin["character_role"] = "shirin"
+        shirin["is_hunter"] = 1
+        keyvan["character_role"] = "keyvan"
+        keyvan["is_hunter"] = 1
+        fereydoun["character_role"] = "fereydoun"
+        fereydoun["is_hunter"] = 1
+        nader["character_role"] = "nader"
+        nader["is_hunter"] = 0
+
+        return {
+            "shirin": shirin,
+            "keyvan": keyvan,
+            "fereydoun": fereydoun,
+            "nader": nader
+        }
+
+async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
+    """Returns currently assigned special characters."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM guests WHERE character_role IS NOT NULL AND role = 'role_player'"
+        ) as cursor:
+            rows = [dict(r) for r in await cursor.fetchall()]
+            result: Dict[str, Optional[Dict[str, Any]]] = {
+                "shirin": None,
+                "keyvan": None,
+                "fereydoun": None,
+                "nader": None
+            }
+            for r in rows:
+                if r["character_role"] in result:
+                    result[r["character_role"]] = r
+            return result
+
+async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
+    """
+    Starts Phase 3 (The 24:00 Midnight Investigation Game):
+    1. Splits active mystery players into 3 teams (تیم ۱ to ۳) of 4-5 players each.
     2. Appoints 1 secret traitor per team (is_traitor=1).
     3. Resets riddles (riddle_1_solved=0, riddle_2_solved=0).
-    4. Marks midnight_game_started=1 in game_state.
-    5. Returns teams dict keyed by team_number (1..4).
+    4. Marks midnight_game_started=1 and game_phase='midnight_investigation' in game_state.
+    5. Returns teams dict keyed by team_number (1..3).
     """
     players = await get_players()
     if not players:
@@ -391,11 +605,12 @@ async def start_midnight_game() -> Dict[int, Dict[str, Any]]:
         3: "تیم ۳ (سکوت)",
         4: "تیم ۴ (آینه)"
     }
+    actual_count = min(team_count, 4)
 
     random.shuffle(players)
     assigned: Dict[int, Dict[str, Any]] = {
         i: {"name": team_names[i], "members": [], "traitor": None}
-        for i in range(1, 5)
+        for i in range(1, actual_count + 1)
     }
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -406,7 +621,7 @@ async def start_midnight_game() -> Dict[int, Dict[str, Any]]:
         """)
 
         for idx, p in enumerate(players):
-            team_num = (idx % 4) + 1
+            team_num = (idx % actual_count) + 1
             t_name = team_names[team_num]
             p["team_number"] = team_num
             p["team_name"] = t_name
@@ -417,7 +632,7 @@ async def start_midnight_game() -> Dict[int, Dict[str, Any]]:
             )
 
         # Select 1 traitor per team
-        for team_num in range(1, 5):
+        for team_num in range(1, actual_count + 1):
             members = assigned[team_num]["members"]
             if members:
                 traitor = random.choice(members)
@@ -431,11 +646,12 @@ async def start_midnight_game() -> Dict[int, Dict[str, Any]]:
         await db.commit()
 
     # Clear riddle game state
-    for i in range(1, 5):
+    for i in range(1, actual_count + 1):
         await set_game_state(f"team_{i}_riddle_1", "0")
         await set_game_state(f"team_{i}_riddle_2", "0")
 
     await set_game_state("midnight_game_started", "1")
+    await set_game_state("game_phase", "midnight_investigation")
     return assigned
 
 async def assign_midnight_teams() -> Dict[str, List[Dict[str, Any]]]:

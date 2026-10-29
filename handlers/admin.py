@@ -62,29 +62,52 @@ async def cmd_admin_help(message: Message):
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
-    """Shows party registration statistics."""
+    """Shows party registration and game statistics (Admin only, role-safe)."""
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
     stats = await database.get_stats()
-    total = stats["total"]
-    players = stats["players"]
-    blondes = stats["blondes"]
-    cars = stats["cars"]
-    hunters = stats["hunters"]
-    immune = stats["immune"]
+    total = stats.get("total", 0)
+    players = stats.get("players", 0)
+    blondes = stats.get("blondes", 0)
+    cars = stats.get("cars", 0)
+    immune = stats.get("immune", 0)
     stickered = stats.get("stickered", 0)
+    alibi_avail = stats.get("alibi_shields_available", 0)
+    alibi_used = stats.get("alibi_shields_used", 0)
+    acc_count = stats.get("accusations_count", 0)
+    rescue_alerts = stats.get("rescue_alerts", 0)
+    phase = stats.get("phase", "registration")
+    teams = stats.get("teams", {})
+
+    t_lines = []
+    for t_num in (1, 2, 3):
+        t_data = teams.get(t_num, {})
+        size = t_data.get("size", 0)
+        r1 = "✅" if t_data.get("riddle_1_solved") else "⏳"
+        r2 = "✅" if t_data.get("riddle_2_solved") else "⏳"
+        acc = "ثبت شد" if t_data.get("accusation_submitted") else "در انتظار"
+        t_name = {1: "خون", 2: "سایه", 3: "سکوت"}.get(t_num, str(t_num))
+        t_lines.append(f"• **تیم {t_num} ({t_name}):** {size} نفر | پاکت ۱: {r1} | پاکت ۲: {r2} | نظریه میز: {acc}")
+
+    teams_str = "\n".join(t_lines) if t_lines else "تیم‌ها هنوز مشخص نشده‌اند."
 
     stats_msg = (
-        "📊 **آمار زنده مهمانی باغ سرهنگ:**\n\n"
-        f"👥 **کل مهمانان ثبت‌شده:** {total} از ۵۲ نفر\n"
-        f"🕯 **بازیکنان طلسم:** {players} از {config.PLAYER_CAP} نفر\n"
-        f"👱‍♀️ **بلوندهای بی‌گناه:** {blondes} نفر\n"
-        f"🚗 **تعداد خودروهای حاضر:** {cars} خودرو (هدف: ۱۳ خودرو)\n"
-        f"🩸 **تسخیرشدگان با استیکر (شکارچی):** {hunters} نفر از ۵ نفر\n"
-        f"🛡 **دارندگان طلسم مصونیت:** {immune} نفر\n"
-        f"💀 **افرادی که استیکر خورده‌اند:** {stickered} نفر\n"
+        "📊 **داشبورد وضعیت رویداد باغ سرهنگ:**\n\n"
+        f"🏷 **فاز جاری رویداد:** `{phase}`\n"
+        f"👥 **کل ثبت‌نام‌شدگان:** {total} نفر\n"
+        f"🕵️‍♂️ **بازرسان فعال (پرونده):** {players} نفر\n"
+        f"👱‍♀️ **همراهان مهمانی (بلوندها):** {blondes} نفر\n"
+        f"🚗 **خودروهای حاضر در کاروان:** {cars} خودرو\n\n"
+        "🔦 **وضعیت تیم‌های سه‌گانه نیمه‌شب:**\n"
+        f"{teams_str}\n\n"
+        "📜 **وضعیت بازی اجتماعی و آلیبای:**\n"
+        f"• سپرهای آلیبای فعال (آماده مصرف): {alibi_avail} نفر\n"
+        f"• سپرهای آلیبای مصرف‌شده: {alibi_used} نفر\n"
+        f"• افراد نشان‌دار شده با استیکر: {stickered} نفر\n"
+        f"• نظریه‌های ثبت‌شده روی میز مرکزی: {acc_count} از ۳ تیم\n\n"
+        f"🚨 **درخواست‌های ایمنی و روشنایی (/rescue):** {rescue_alerts} بار"
     )
     await message.answer(stats_msg)
 
@@ -149,64 +172,117 @@ async def cmd_list(message: Message):
         caption="📁 فایل اکسل/CSV اطلاعات ۵۲ مهمان"
     )
 
+@router.message(Command("assign_characters"))
+async def cmd_assign_characters(message: Message, bot: Bot):
+    """Admin command to assign and privately deliver the 4 special character roles."""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    assigned = await database.assign_special_character_roles(force_reassign=True)
+    if not assigned:
+        await message.answer("⚠️ بازیکنی برای انتساب نقش‌های ویژه یافت نشد.")
+        return
+
+    success_count = 0
+    fail_count = 0
+    role_labels = {
+        "shirin": "شیرین نوری (شاهد صحنه — تیم ۱)",
+        "keyvan": "کیوان رستگار (عکاس مهمانی — تیم ۲)",
+        "fereydoun": "دکتر فریدون مهر (پزشک معالج — تیم ۳)",
+        "nader": "نادر وثوق (مقصر اصلی و مخفی)"
+    }
+
+    report_lines = ["🎭 **نتیجه انتساب نقش‌های ویژه پرونده سال ۵۶:**\n"]
+    for role_key, guest in assigned.items():
+        card_text = game.CHARACTER_ROLE_CARDS.get(role_key)
+        tid = guest.get("telegram_id")
+        delivered = False
+        if tid and card_text:
+            try:
+                await bot.send_message(chat_id=tid, text=card_text)
+                delivered = True
+                success_count += 1
+            except Exception as e:
+                fail_count += 1
+                print(f"Failed delivering role card to {guest.get('full_name')}: {e}")
+
+        status_icon = "📨 ارسال شد" if delivered else "⚠️ عدم ارسال به تلگرام"
+        report_lines.append(f"• **{role_labels.get(role_key, role_key)}:** {guest.get('full_name')} — {status_icon}")
+
+    await message.answer("\n".join(report_lines))
+
 @router.message(Command("start_social_game"))
 async def cmd_start_social_game(message: Message, bot: Bot):
     """
-    Phase 2 (19:15 Social Game):
-    1. Picks 5 secret infected guests (is_hunter=1) and sends physical sticker DMs.
-    2. Sends social missions to all remaining players with immunity & stickered buttons.
+    Phase 2 (19:30 Social Sticker Game):
+    1. Assigns 3 witness sticker carriers (Shirin, Keyvan, Dr. Fereydoun) + Nader Vosough.
+    2. Sends private role cards explaining their 2 physical suspect stickers.
+    3. Sends social missions to all remaining players with 1-use alibi shield button.
+    4. Reassures casual blondes about VIP safe zone.
     """
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
     players = await database.get_players()
-    if len(players) < 3:
+    if len(players) < 4:
         await message.answer(
-            f"⚠️ تعداد بازیکنان ثبت‌شده ({len(players)} نفر) کمتر از ۳ نفر است!\n"
-            f"حداقل ۳ نفر بازیکن برای شروع بازی نیاز است."
+            f"⚠️ تعداد بازیکنان ثبت‌شده ({len(players)} نفر) کمتر از ۴ نفر است!\n"
+            f"برای انتساب ۳ شاهد و ۱ مقصر حداقل ۴ بازرس نیاز است."
         )
         return
 
-    res = await database.start_social_game(count=3)
-    hunters = res["hunters"]
-    regular = res["regular_players"]
+    # Ensure 3 teams are initialized
+    await database.start_midnight_game(team_count=3)
+    # Assign special characters
+    assigned_roles = await database.assign_special_character_roles()
+    await database.set_game_state("social_game_started", "1")
+    await database.set_game_state("force_unlock_missions", "1")
+    await database.set_game_state("game_phase", "social_game")
 
-    # 1. Notify the 3 infected
-    hunter_success = 0
-    for h in hunters:
-        tid = h.get("telegram_id")
-        if tid:
+    # 1. Deliver private character cards to the 4 special roles
+    role_success = 0
+    role_failed = 0
+    for role_key, guest in assigned_roles.items():
+        tid = guest.get("telegram_id")
+        card_text = game.CHARACTER_ROLE_CARDS.get(role_key)
+        if tid and card_text:
             try:
-                await bot.send_message(chat_id=tid, text=texts.INFECTED_SECRET_DM)
-                hunter_success += 1
+                await bot.send_message(chat_id=tid, text=card_text)
+                role_success += 1
             except Exception as e:
-                print(f"Error DMing infected {h['full_name']}: {e}")
+                role_failed += 1
+                print(f"Error sending special role card to {guest['full_name']}: {e}")
 
     # 2. Notify remaining players with social missions & action buttons
     regular_success = 0
-    for p in regular:
-        tid = p.get("telegram_id")
-        if tid:
-            mission_id = p.get("social_mission_id", 1)
-            mission_text = game.SOCIAL_MISSIONS.get(mission_id, game.SOCIAL_MISSIONS[1])
-            text = (
-                "🩸 **[آغاز بازی اجتماعی سالن — ساعت ۱۹:۳۰]**\n\n"
-                "۳ تسخیرشده‌ی پنهان با بسته‌های استیکر در سالن رها شده‌اند!\n\n"
-                f"🎯 **ماموریت اجتماعی شما برای فعال‌سازی طلسم مصونیت:**\n"
-                f"||{mission_text}||\n\n"
-                "💡 به محض انجام این ماموریت در سالن، دکمه‌ی «✅ ماموریتم رو انجام دادم!» را لمس کنید تا کارت طلسم مصونیت سبز دریافت کنید.\n"
-                "⚠️ اگر کسی استیکر به پشت لباستان چسباند، دکمه‌ی «💀 استیکر خوردم!» را بزنید."
-            )
-            kb = keyboards.social_mission_player_kb(
-                is_immune=bool(p.get("is_immune")),
-                got_stickered=bool(p.get("got_stickered"))
-            )
-            try:
-                await bot.send_message(chat_id=tid, text=text, reply_markup=kb)
-                regular_success += 1
-            except Exception as e:
-                print(f"Error DMing player {p['full_name']}: {e}")
+    witness_ids = {g["id"] for g in assigned_roles.values()}
+    all_players = await database.get_players()
+    for p in all_players:
+        if p["id"] not in witness_ids:
+            tid = p.get("telegram_id")
+            if tid:
+                mission_id = p.get("social_mission_id", 1)
+                mission_text = game.SOCIAL_MISSIONS.get(mission_id, game.SOCIAL_MISSIONS[1])
+                text = (
+                    "📜 **[آغاز بازی اجتماعی سالن — ساعت ۱۹:۳۰ تا ۲۳:۵۰]**\n\n"
+                    "پرونده‌ی باغ سرهنگ به جریان افتاد! ۳ شاهد کلیدی با استیکرهای نشان‌دار در سالن حضور دارند.\n\n"
+                    f"🎯 **ماموریت اجتماعی شما جهت ثبت آلیبای و دریافت سپر:**\n"
+                    f"||{mission_text}||\n\n"
+                    "💡 پس از انجام گفت‌وگو، دکمه‌ی «✅ ماموریتم رو انجام دادم!» را بزنید تا یک سپر آلیبای (برای باطل کردن ۱ استیکر) دریافت نمایید.\n"
+                    "⚠️ اگر استیکری به شما زده شد، دکمه‌ی «💀 استیکر خوردم!» یا «🛡 مصرف سپر» را لمس کنید."
+                )
+                kb = keyboards.social_mission_player_kb(
+                    is_immune=bool(p.get("is_immune")),
+                    got_stickered=bool(p.get("got_stickered")),
+                    has_shield=bool((p.get("alibi_shields") or 0) > 0)
+                )
+                try:
+                    await bot.send_message(chat_id=tid, text=text, reply_markup=kb)
+                    regular_success += 1
+                except Exception as e:
+                    print(f"Error DMing player {p['full_name']}: {e}")
 
     # 3. Notify blondes
     blondes = await database.get_all_telegram_ids(role_filter="role_blonde")
@@ -216,18 +292,17 @@ async def cmd_start_social_game(message: Message, bot: Bot):
                 chat_id=b_tid,
                 text=(
                     "🥂 **[آغاز پرده‌ی سوم: بازی اجتماعی در سالن رقص]**\n\n"
-                    "بازی استیکر و ماموریت‌های بازیکنان در سالن آغاز شد!\n"
+                    "بازی اجتماعی بازرسان در سالن آغاز شد!\n"
                     "شما در حاشیه امن مطلق قرار دارید؛ از نوشیدنی، موسیقی و تماشای تکاپوی دیگران لذت ببرید."
                 )
             )
         except Exception:
             pass
 
-    hunters_names = "، ".join([h["full_name"] for h in hunters])
     await message.answer(
-        f"✅ **بازی اجتماعی ساعت ۱۹:۳۰ آغاز شد!**\n\n"
-        f"🩸 **۳ تسخیرشده‌ی منتخب:** {hunters_names}\n"
-        f"📨 پیام برای {hunter_success} تسخیرشده و {regular_success} بازیکن ارسال گردید."
+        f"✅ **بازی اجتماعی ساعت ۱۹:۳۰ با موفقیت آغاز شد!**\n\n"
+        f"🎭 کارت‌های محرمانه ۴ شخصیت اصلی (۳ شاهد + نادر): {role_success} ارسال موفق (خطا: {role_failed})\n"
+        f"📜 ماموریت‌های اجتماعی برای {regular_success} بازرس دیگر ارسال گردید."
     )
 
 @router.message(Command("start_midnight_game"))
@@ -445,12 +520,19 @@ async def cmd_crisis_broadcast(message: Message, bot: Bot):
 @router.message(Command("finale"))
 @router.message(Command("trigger_darkroom"))
 async def cmd_trigger_darkroom(message: Message, bot: Bot):
-    """Triggers the 01:10 AM Final Darkroom Sequence to all players."""
+    """
+    Triggers the 01:10 AM Final Darkroom Sequence to all players.
+    Idempotent and safe to call multiple times without duplicating or breaking state.
+    """
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
-    text = texts.DARKROOM_FINAL_PROMPT
+    from datetime import datetime, timezone
+    await database.set_game_state("game_phase", "finale")
+    await database.set_game_state("finale_triggered_at", datetime.now(timezone.utc).isoformat())
+
+    text = game.DARKROOM_FINAL_PROMPT
     success, failed = await send_broadcast(bot, text, role_filter="role_player")
     await message.answer(f"🕯 سکانس نهایی تاریکخانه برای {success} بازرس ارسال شد. (خطا: {failed})")
 

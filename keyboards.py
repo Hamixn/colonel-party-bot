@@ -202,14 +202,21 @@ def midnight_action_kb() -> InlineKeyboardMarkup:
         ]
     )
 
-def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = False) -> InlineKeyboardMarkup:
+def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = False, has_shield: bool = False) -> InlineKeyboardMarkup:
     """Inline keyboard for social mission in Phase 2."""
     buttons = []
-    if not is_immune:
+    if not is_immune and not has_shield:
         buttons.append([
             InlineKeyboardButton(
                 text="✅ ماموریتم رو انجام دادم!",
                 callback_data="claim_immunity"
+            )
+        ])
+    if has_shield or is_immune:
+        buttons.append([
+            InlineKeyboardButton(
+                text="🛡 مصرف سپر آلیبای (باطل کردن ۱ استیکر)",
+                callback_data="use_alibi"
             )
         ])
     if not got_stickered:
@@ -217,6 +224,25 @@ def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = Fals
             InlineKeyboardButton(
                 text="💀 استیکر خوردم!",
                 callback_data="got_stickered"
+            )
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def accuse_suspects_kb() -> InlineKeyboardMarkup:
+    """Keyboard for submitting team conclusion at central deduction table."""
+    suspects = [
+        "نادر وثوق (مدیر امور مالی)",
+        "شیرین نوری (شاهد فراری)",
+        "کیوان رستگار (عکاس مهمانی)",
+        "دکتر فریدون مهر (پزشک معالج)",
+        "سرهنگ بهرام فرهمند"
+    ]
+    buttons = []
+    for s in suspects:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"🎯 متهم اصلی: {s}",
+                callback_data=f"accuse_{s.split(' ')[0]}"
             )
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)

@@ -47,14 +47,14 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(database._normalize_text("  ۵  "), "5")
 
     async def test_riddle_answers_success_team_1(self):
-        """Verifies Team 1 riddle keys: خون (1-A) and 1356/۱۳۵۶ (1-B)."""
+        """Verifies Team 1 riddle keys: خون (1-A) and 1356/۱۳۵۶ (1-B) with safe canonical clues."""
         # 1-A: خون
         res_1a = await database.check_team_riddle(101, "خون")
         self.assertEqual(res_1a["status"], "riddle_solved")
         self.assertEqual(res_1a["riddle_num"], 1)
         self.assertEqual(
             res_1a["response_text"],
-            "✅ مدرک اول ثبت شد: لکهی خون لبهی استخر نشان میدهد سر آرش پیش از ورود به آب آسیب دیده؛ این حادثه سقوط اتفاقی نبوده است. پاکت دوم را برای کشف انگیزه باز کنید."
+            "✅ مدرک جسمانی ثبت شد. آثار خون و جراحت سر آرش نشان میدهند که آسیب پیش از ورود او به آب رخ داده است. این مدرک بهتنهایی مشخص نمیکند چه کسی مسئول بوده است."
         )
 
         # 1-B: Persian digits ۱۳۵۶
@@ -63,18 +63,18 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_1b["riddle_num"], 2)
         self.assertEqual(
             res_1b["response_text"],
-            "✅ مدرک دوم ثبت شد: برگهی دفتر مالی سال ۱۳۵۶ پرده از اختلاس پنهانی نادر وثوق برمیدارد. آرش در ساعت ۲۲:۰۵ متوجه این دزدی شده بود."
+            "✅ صفحهی حسابها ثبت شد. یک انتقال مالی بدون تأیید در دفتر شناسایی شده است. شمارهی حساب و نشان ثبتشده را برای تطبیق با فهرست کارکنان در میز مرکزی نگه دارید."
         )
 
     async def test_riddle_answers_success_team_2(self):
-        """Verifies Team 2 riddle keys: سایه (2-A) and 2910/۲۹۱۰ (2-B)."""
+        """Verifies Team 2 riddle keys: سایه (2-A) and 2910/۲۹۱۰ (2-B) with safe canonical clues."""
         # 2-A: سایه (with arabic yeh normalization)
         res_2a = await database.check_team_riddle(102, "سايه")
         self.assertEqual(res_2a["status"], "riddle_solved")
         self.assertEqual(res_2a["riddle_num"], 1)
         self.assertEqual(
             res_2a["response_text"],
-            "✅ مدرک اول ثبت شد: تصویر تاریکخانه تأیید شد. در شیشهی پشت سر مهمانان، بازتاب و سایهی مبهم فردی ثبت شده که خروجش از باغ یک دروغ بوده است."
+            "✅ تصویر ثبت شد. بازتاب شیشه حضور فرد دیگری را مطرح میکند؛ اما عکس بهتنهایی هویت او را ثابت نمیکند."
         )
 
         # 2-B: Persian digits ۲۹۱۰
@@ -83,18 +83,18 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_2b["riddle_num"], 2)
         self.assertEqual(
             res_2b["response_text"],
-            "✅ مدرک دوم ثبت شد: دفتر عکاس ساعت ۲۲:۱۹ (پنج دقیقه قبل از سقوط آرش) را نشان میدهد. نادر ادعا کرده بود ساعت ۲۲:۰۰ رفته، اما او در صحنهی جرم حضور داشته است!"
+            "✅ زمان ثبت تصویر تأیید شد: ۲۲:۱۹. این زمان با ادعای خروج پیش از ساعت ۲۲:۰۰ سازگار نیست. برای شناسایی فرد، تصویر را با سایر مدارک تطبیق دهید."
         )
 
     async def test_riddle_answers_success_team_3(self):
-        """Verifies Team 3 riddle keys: سکوت (3-A) and 5/۵/پنج (3-B)."""
+        """Verifies Team 3 riddle keys: سکوت (3-A) and 5/۵/پنج (3-B) with safe canonical clues."""
         # 3-A: سکوت
         res_3a = await database.check_team_riddle(103, "سکوت")
         self.assertEqual(res_3a["status"], "riddle_solved")
         self.assertEqual(res_3a["riddle_num"], 1)
         self.assertEqual(
             res_3a["response_text"],
-            "✅ مدرک اول ثبت شد: یادداشت شیرین نوری؛ شاهدان از ترس تهدیدهای نادر سکوت کردند و گریختند، اما او لحظهی درگیری ساعت ۲۲:۲۴ را دیده است."
+            "✅ شهادت ثبت شد. یکی از شاهدان، درگیری کنار استخر را دیده و پس از تهدید از باغ فرار کرده است. نام فردی که او دیده، باید با مدارک دیگر تطبیق داده شود."
         )
 
         # 3-B: Persian digit ۵
@@ -103,7 +103,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_3b["riddle_num"], 2)
         self.assertEqual(
             res_3b["response_text"],
-            "✅ مدرک دوم ثبت شد: ۵ عنصر کلیدی پرونده (۳ شاهد، ۱ سایه در شیشه، ۱ قربانی) تطبیق داده شدند. مدارک را به میز مرکزی ببرید!"
+            "✅ فهرست بایگانی تأیید شد: پنج فرد متمایز در فهرست پرونده ثبت شدهاند. این عدد بهتنهایی هیچکس را مجرم نمیکند."
         )
 
     async def test_cross_team_code_rejection(self):
@@ -111,7 +111,27 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         Verifies that submitting another team's valid code is rejected
         with the exact cross-team warning string.
         """
-        expected_alert = "⚠️ این مدرک متعلق به پروندهی تیم دیگری است. پاکتهای مخصوص تیم خود را در حیاط بررسی کنید."
+        expected_alert = game.OTHER_TEAM_CODE_ALERT
+
+        # Team 1 member sends Team 2's code ("سایه")
+        res_t1_cross = await database.check_team_riddle(101, "سایه")
+        self.assertEqual(res_t1_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t1_cross["response_text"], expected_alert)
+
+        # Team 1 member sends Team 3's code ("5")
+        res_t1_cross2 = await database.check_team_riddle(101, "5")
+        self.assertEqual(res_t1_cross2["status"], "other_team_riddle")
+        self.assertEqual(res_t1_cross2["response_text"], expected_alert)
+
+        # Team 2 member sends Team 1's code ("1356")
+        res_t2_cross = await database.check_team_riddle(102, "۱۳۵۶")
+        self.assertEqual(res_t2_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t2_cross["response_text"], expected_alert)
+
+        # Team 3 member sends Team 2's code ("2910")
+        res_t3_cross = await database.check_team_riddle(103, "۲۹۱۰")
+        self.assertEqual(res_t3_cross["status"], "other_team_riddle")
+        self.assertEqual(res_t3_cross["response_text"], expected_alert)
 
         # Team 1 member sends Team 2's code ("سایه")
         res_t1_cross = await database.check_team_riddle(101, "سایه")
@@ -234,9 +254,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
 
         # Step 4: Finale Trigger (01:10 AM)
         expected_finale = (
-            "🕯 **[شواهد کامل شد — حمله به تاریکخانه]**\n"
-            "نادر وثوق فهمیده که دستش رو شده است! او برای سرقت پیراهن آرش و دکمهی سردست جا مانده در جیب آن، وارد اتاق تاریکخانه شده است.\n"
-            "با نور قرمز و در آرامش کامل وارد اتاق شوید!"
+            "🕯 آخرین مدرک در تاریکخانه است. نادر فهمیده که عکس پیدا شده است. او برای آخرین بار به باغ برگشته تا مدرک را پس بگیرد."
         )
         self.assertEqual(texts.DARKROOM_FINAL_PROMPT, expected_finale)
         self.assertEqual(game.DARKROOM_FINAL_PROMPT, expected_finale)
@@ -262,6 +280,147 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
             await db.commit()
 
         # Check Team 1 solve
+        res1 = await database.check_team_riddle(102725917, "خون")
+        self.assertEqual(res1["status"], "riddle_solved")
+
+        # Switch to Team 2
+        await database.assign_tester_team(102725917, 2)
+        guest = await database.get_guest_by_telegram_id(102725917)
+        self.assertEqual(guest["team_number"], 2)
+
+        # Check Team 2 solve
+        res2 = await database.check_team_riddle(102725917, "سایه")
+        self.assertEqual(res2["status"], "riddle_solved")
+
+        # Reset Team 2 riddles
+        await database.reset_team_riddles(2)
+        r2_state = await database.get_game_state("team_2_riddle_1")
+        self.assertEqual(r2_state, "0")
+
+    async def test_alibi_shield_lifecycle(self):
+        """
+        Verifies that alibi shield:
+        1. Grants at most 1 available shield on mission completion.
+        2. Does not grant unlimited shields on repeat calls.
+        3. Can be consumed via use_alibi_shield to neutralize a sticker.
+        4. Cannot be consumed again once used.
+        """
+        # Initial state
+        g_init = await database.get_guest_by_telegram_id(101)
+        self.assertEqual(g_init.get("alibi_shields", 0), 0)
+
+        # 1. Grant shield
+        r1 = await database.grant_alibi_shield(101)
+        self.assertEqual(r1["status"], "granted")
+        self.assertEqual(r1["shields"], 1)
+
+        # 2. Duplicate grant attempt must NOT give a second shield
+        r2 = await database.grant_alibi_shield(101)
+        self.assertEqual(r2["status"], "already_has_shield")
+        self.assertEqual(r2["shields"], 1)
+
+        # 3. Simulate getting stickered
+        await database.mark_stickered(101)
+        g_stickered = await database.get_guest_by_telegram_id(101)
+        self.assertEqual(g_stickered["got_stickered"], 1)
+
+        # 4. Consume shield
+        r_use = await database.use_alibi_shield(101)
+        self.assertEqual(r_use["status"], "consumed")
+
+        g_after = await database.get_guest_by_telegram_id(101)
+        self.assertEqual(g_after["alibi_shields"], 0)
+        self.assertEqual(g_after["alibi_shield_used"], 1)
+        self.assertEqual(g_after["got_stickered"], 0)
+
+        # 5. Try consuming again without an active shield
+        r_use_again = await database.use_alibi_shield(101)
+        self.assertEqual(r_use_again["status"], "no_shield")
+
+    async def test_special_character_role_assignment(self):
+        """
+        Verifies assignment of 4 canonical roles:
+        - Shirin Nouri (witness in Team 1)
+        - Keyvan Rastegar (witness in Team 2)
+        - Dr. Fereydoun Mehr (witness in Team 3)
+        - Nader Vosough (killer, distinct from witnesses)
+        - Never assigned to role_blonde
+        """
+        async with aiosqlite.connect(self.test_db_file) as db:
+            # Seed a 4th player and a blonde
+            await db.execute("""
+                INSERT INTO guests (telegram_id, full_name, role, team_number, team_name)
+                VALUES (104, 'بازرس چهارم', 'role_player', 1, 'تیم ۱ (خون)')
+            """)
+            await db.execute("""
+                INSERT INTO guests (telegram_id, full_name, role)
+                VALUES (105, 'بلوند بی‌گناه', 'role_blonde')
+            """)
+            await db.commit()
+
+        assigned = await database.assign_special_character_roles(force_reassign=True)
+        self.assertEqual(len(assigned), 4)
+        self.assertIn("shirin", assigned)
+        self.assertIn("keyvan", assigned)
+        self.assertIn("fereydoun", assigned)
+        self.assertIn("nader", assigned)
+
+        shirin = assigned["shirin"]
+        keyvan = assigned["keyvan"]
+        fereydoun = assigned["fereydoun"]
+        nader = assigned["nader"]
+
+        # Witnesses must be in their respective teams
+        self.assertEqual(shirin["team_number"], 1)
+        self.assertEqual(keyvan["team_number"], 2)
+        self.assertEqual(fereydoun["team_number"], 3)
+
+        # Nader must be distinct from all witnesses
+        self.assertNotIn(nader["id"], [shirin["id"], keyvan["id"], fereydoun["id"]])
+
+        # Witnesses are sticker carriers (is_hunter=1), Nader is not
+        self.assertEqual(shirin["is_hunter"], 1)
+        self.assertEqual(keyvan["is_hunter"], 1)
+        self.assertEqual(fereydoun["is_hunter"], 1)
+        self.assertEqual(nader["is_hunter"], 0)
+
+        # Blonde guest must NOT have received any special role
+        blonde_g = await database.get_guest_by_telegram_id(105)
+        self.assertIsNone(blonde_g.get("character_role"))
+
+    async def test_team_accusation_flow(self):
+        """Verifies that teams can submit, retrieve, and revise their conclusions at the central table."""
+        # Team 1 submits conclusion
+        res1 = await database.record_team_accusation(1, "نادر وثوق", 101)
+        self.assertEqual(res1["status"], "recorded")
+        self.assertEqual(res1["suspect"], "نادر وثوق")
+
+        acc = await database.get_team_accusation(1)
+        self.assertEqual(acc, "نادر وثوق")
+
+        # Revision
+        res2 = await database.record_team_accusation(1, "نادر وثوق (مدیر امور مالی)", 101)
+        self.assertEqual(res2["suspect"], "نادر وثوق (مدیر امور مالی)")
+
+        acc_rev = await database.get_team_accusation(1)
+        self.assertEqual(acc_rev, "نادر وثوق (مدیر امور مالی)")
+
+        # Verify get_all_accusations
+        all_acc = await database.get_all_accusations()
+        self.assertIn(1, all_acc)
+        self.assertEqual(all_acc[1], "نادر وثوق (مدیر امور مالی)")
+
+    async def test_rescue_alert_safety(self):
+        """Verifies that rescue safety alerts are never artificially blocked after 3 uses."""
+        c1 = await database.record_rescue_alert(101, "بازرس اول")
+        c2 = await database.record_rescue_alert(101, "بازرس اول")
+        c3 = await database.record_rescue_alert(101, "بازرس اول")
+        c4 = await database.record_rescue_alert(101, "بازرس اول")
+
+        self.assertEqual(c1, 1)
+        self.assertEqual(c2, 2)
+        self.assertEqual(c3, 3)
+        self.assertEqual(c4, 4)
         res1 = await database.check_team_riddle(102725917, "خون")
         self.assertEqual(res1["status"], "riddle_solved")
 

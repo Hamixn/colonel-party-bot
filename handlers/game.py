@@ -125,8 +125,11 @@ async def cmd_mission(message: Message):
     mission_id = guest.get("social_mission_id", 1)
     mission_text = game.SOCIAL_MISSIONS.get(mission_id, game.SOCIAL_MISSIONS[1])
     is_immune = guest.get("is_immune", 0)
+    has_shield = (guest.get("alibi_shields") or 0) > 0
 
-    if is_immune:
+    if has_shield:
+        status_str = "🛡 **وضعیت شما:** ۱ سپر آلیبای فعال دارید (خنثی‌کننده ۱ استیکر فیزیکی)."
+    elif is_immune:
         status_str = texts.ALIBI_LOGGED_BADGE
     else:
         status_str = "⏳ **وضعیت شما:** آلیبای شما هنوز در پرونده ثبت نشده است."
@@ -136,10 +139,15 @@ async def cmd_mission(message: Message):
         f"🎯 **روایت ماموریت شما جهت ثبت حضور:**\n"
         f"||{mission_text}||\n\n"
         f"{status_str}\n\n"
-        "💡 پس از انجام این گفت‌وگو در سالن، دکمه‌ی زیر را لمس کرده و نام شاهد یا زمان حضور خود را ثبت نمایید."
+        "💡 پس از انجام این گفت‌وگو در سالن، دکمه‌ی «✅ ماموریتم رو انجام دادم!» را بزنید تا ۱ سپر آلیبای دریافت کنید.\n"
+        "*(این سپر برای خنثی‌کردن یک استیکر فیزیکی است و مصونیت دائمی ایجاد نمی‌کند)*"
     )
 
-    kb = keyboards.social_mission_player_kb(is_immune=bool(is_immune), got_stickered=False)
+    kb = keyboards.social_mission_player_kb(
+        is_immune=bool(is_immune),
+        got_stickered=bool(guest.get("got_stickered", 0)),
+        has_shield=has_shield
+    )
     await message.answer(text, reply_markup=kb)
 
 @router.message(Command("change_role"))
@@ -235,19 +243,55 @@ async def cb_switch_to_player(callback: CallbackQuery):
 
 @router.callback_query(F.data == "claim_immunity")
 async def cb_claim_immunity(callback: CallbackQuery):
-    """Awards alibi / evidence badge to player upon social mission completion."""
+    """Awards alibi / evidence badge and at most one alibi shield to player."""
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
         await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
         return
 
-    await database.set_mission_completed(callback.from_user.id)
+    res = await database.grant_alibi_shield(callback.from_user.id)
+    if res.get("status") == "already_has_shield":
+        await callback.answer("شما در حال حاضر یک سپر آلیبای فعال دارید!", show_alert=True)
+        await callback.message.answer(
+            "🛡 **سپر آلیبای شما فعال است:**\n"
+            "شما هم‌اکنون یک سپر آلیبای آماده‌ی مصرف دارید. در صورت چسبانده‌شدن استیکر، با فشردن دکمه‌ی مصرف سپر یا دستور `/use_alibi` آن را باطل کنید."
+        )
+        return
+
     await callback.answer("📋 آلیبای شما ثبت شد!", show_alert=True)
-    await callback.message.answer(texts.ALIBI_LOGGED_BADGE)
+    await callback.message.answer(
+        f"{texts.ALIBI_LOGGED_BADGE}\n\n"
+        "🛡 **یک سپر آلیبای تک‌بار مصرف به شما اعطا شد.**\n"
+        "این سپر مصونیت دائمی ایجاد نمی‌کند، بلکه تنها برای خنثی کردن ۱ عدد استیکر فیزیکی است.\n"
+        "در صورتی که استیکری به شما زده شد، می‌توانید با زدن دکمه‌ی «🛡 مصرف سپر آلیبای» یا دستور `/use_alibi` آن را خنثی نمایید."
+    )
+
+@router.message(Command("use_alibi"))
+@router.callback_query(F.data == "use_alibi")
+async def handle_use_alibi(event: Message | CallbackQuery):
+    """Consumes the player's single one-use alibi shield to cancel a physical sticker."""
+    message = event if isinstance(event, Message) else event.message
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+
+    res = await database.use_alibi_shield(event.from_user.id)
+    if res.get("status") == "consumed":
+        await message.answer(
+            "🛡 **[سپر آلیبای شما مصرف گردید]**\n\n"
+            "یک استیکر فیزیکی با موفقیت باطل شد و وضعیت استیکر شما پاکسازی گردید.\n"
+            "*(این سپر یک‌بار مصرف بود و اکنون منقضی شده است)*"
+        )
+    elif res.get("status") == "no_shield":
+        await message.answer(
+            "⚠️ **شما سپر آلیبای فعالی برای مصرف ندارید!**\n"
+            "برای کسب سپر، ابتدا ماموریت اجتماعی خود را از طریق دستور /mission انجام دهید."
+        )
+    else:
+        await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
 
 @router.callback_query(F.data == "got_stickered")
 async def cb_got_stickered(callback: CallbackQuery):
-    """Player marks that they received a sticker from an infected guest."""
+    """Player marks that they received a sticker from a witness/suspect carrier."""
     await database.mark_stickered(callback.from_user.id)
     await callback.answer("💀 وضعیت شما به عنوان استیکر خورده ثبت شد!", show_alert=True)
     await callback.message.answer(texts.STICKERED_ALERT)
@@ -431,29 +475,113 @@ async def cmd_team(message: Message):
 @router.message(Command("rescue"))
 @router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ"]))
 async def cmd_rescue(message: Message, bot: Bot):
-    """Blondes can trigger emergency courtyard lights to temporarily blind the ghost."""
+    """
+    Emergency safety lighting alert.
+    Never blocked by theatrical use limits.
+    Directly alerts event staff to assist with physical illumination.
+    """
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
-    if not guest:
-        await message.answer("⚠️ ابتدا با ارسال /start در سیستم ثبت‌نام کنید.")
-        return
+    guest_name = guest.get("full_name") if guest else message.from_user.full_name
 
-    rescue_count = int(await database.get_game_state("rescue_count", "0"))
-    if rescue_count >= 3:
-        await message.answer("⚠️ انرژی ژنراتور باغ تمام شده است! حداکثر ۳ بار امکان روشن کردن نور حیات باغ وجود داشت.")
-        return
+    alert_count = await database.record_rescue_alert(message.from_user.id, guest_name)
 
-    await database.set_game_state("rescue_count", str(rescue_count + 1))
-    await message.answer(f"💡 نور حیات باغ به مدت ده ثانیه روشن میشود. ({rescue_count + 1}/3)")
+    # Reassure user
+    await message.answer(
+        "💡 **[درخواست پشتیبانی روشنایی و ایمنی ثبت شد]**\n\n"
+        "پیام هشدار مستقیماً برای تیم پشتیبانی و میزبانان عمارت ارسال گردید تا روشنایی فیزیکی مسیرهای حیاط و لبه‌ی استخر را بررسی و تامین کنند.\n"
+        "لطفاً در آرامش و در محل امن با نور قرمز بمانید."
+    )
 
-    players = await database.get_all_telegram_ids(role_filter="role_player")
-    for pid in players:
+    # Alert event administrators and staff
+    staff_alert = (
+        f"🚨 **[درخواست فوری روشنایی و ایمنی در حیاط]**\n\n"
+        f"👤 **مهمان:** {guest_name} (@{message.from_user.username or 'بدون آیدی'})\n"
+        f"🔢 **شناسه تلگرام:** `{message.from_user.id}`\n"
+        f"📊 **تعداد کل درخواست‌ها:** {alert_count}\n\n"
+        f"📍 تیم تشریفات حیاط فوراً وضعیت روشنایی محیط، استخر و مسیرها را بررسی کنند."
+    )
+    if config.ADMIN_USER_ID != 0:
         try:
-            await bot.send_message(
-                chat_id=pid,
-                text="💡 **[امداد از سالن — نور حیات باغ روشن شد!]**\n\nبلوندهای بی‌گناه از پشت پنجره نور حیات باغ را روشن کردند! روح سرهنگ موقتاً کور شد؛ الان زمان فرار و پیدا کردن پاکت طلسم است!"
-            )
+            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=staff_alert)
         except Exception:
             pass
+    for tid in TESTER_IDS:
+        if tid != config.ADMIN_USER_ID:
+            try:
+                await bot.send_message(chat_id=tid, text=staff_alert)
+            except Exception:
+                pass
+
+@router.message(Command("accuse"))
+async def cmd_accuse(message: Message):
+    """
+    Central deduction submission: allows a team to submit or revise its suspect conclusion.
+    Usage: /accuse <نام متهم> or just /accuse to see suspect options.
+    """
+    guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    if not guest:
+        await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
+        return
+
+    if guest.get("role") != "role_player":
+        await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و ثبت نظریه نهایی بر عهده‌ی تیم‌های بازرسی است.")
+        return
+
+    team_num = guest.get("team_number")
+    if not team_num:
+        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید.")
+        return
+
+    suspect_arg = message.text.partition(" ")[2].strip()
+    if not suspect_arg:
+        current_acc = await database.get_team_accusation(team_num)
+        curr_str = f"\n\n📌 **نظریه فعلی تیم شما:** «{current_acc}»" if current_acc else ""
+        await message.answer(
+            "⚖️ **[میز مرکزی تجمیع مدارک — ثبت نظریه نهایی تیم]**\n\n"
+            "با ترکیب مدرک حساب‌ها، عکس ۲۲:۱۹، دکمه سردست و شهادت شاهدان، متهم اصلی قتل آرش را انتخاب نمایید:\n"
+            "یا بنویسید: `/accuse <نام متهم>`"
+            f"{curr_str}",
+            reply_markup=keyboards.accuse_suspects_kb()
+        )
+        return
+
+    res = await database.record_team_accusation(team_num, suspect_arg, message.from_user.id)
+    await message.answer(
+        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
+        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
+        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+    )
+
+@router.callback_query(F.data.startswith("accuse_"))
+async def cb_accuse(callback: CallbackQuery):
+    """Handles inline button accusation selection."""
+    guest = await database.get_guest_by_telegram_id(callback.from_user.id)
+    if not guest:
+        await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
+        return
+
+    team_num = guest.get("team_number")
+    if not team_num:
+        await callback.answer("شما در تیمی قرار ندارید!", show_alert=True)
+        return
+
+    suspect_key = callback.data.replace("accuse_", "").strip()
+    name_map = {
+        "نادر": "نادر وثوق (مدیر امور مالی)",
+        "شیرین": "شیرین نوری (شاهد فراری)",
+        "کیوان": "کیوان رستگار (عکاس مهمانی)",
+        "دکتر": "دکتر فریدون مهر (پزشک معالج)",
+        "سرهنگ": "سرهنگ بهرام فرهمند"
+    }
+    suspect_name = name_map.get(suspect_key, suspect_key)
+    res = await database.record_team_accusation(team_num, suspect_name, callback.from_user.id)
+
+    await callback.answer("نظریه تیم ثبت شد!", show_alert=True)
+    await callback.message.answer(
+        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
+        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
+        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+    )
 
 @router.message(Command("lantern"))
 @router.message(Command("red_lantern"))
