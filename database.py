@@ -1352,25 +1352,25 @@ async def clean_all_guests() -> int:
         except Exception:
             pass
 
-        # Reset all game progression states
+        # Reset guest and competitive-game records together.
+        await db.execute("DELETE FROM team_accusations")
         keys_to_clear = [
             'social_game_started',
             'midnight_game_started',
-            'team_1_riddle_1',
-            'team_1_riddle_2',
-            'team_2_riddle_1',
-            'team_2_riddle_2',
-            'team_3_riddle_1',
-            'team_3_riddle_2',
-            'team_1_accusation',
-            'team_2_accusation',
-            'team_3_accusation',
-            'rescue_count',
-            'rescue_alert_count',
-            'traitors_revealed'
+            'team_1_riddle_1', 'team_1_riddle_2',
+            'team_2_riddle_1', 'team_2_riddle_2',
+            'team_3_riddle_1', 'team_3_riddle_2',
+            'team_1_both_solved', 'team_2_both_solved', 'team_3_both_solved',
+            'team_1_completed_at', 'team_2_completed_at', 'team_3_completed_at',
+            'team_1_accusation', 'team_2_accusation', 'team_3_accusation',
+            'game_winner_team', 'winning_team_id', 'winning_timestamp',
+            'game_winner_recorded_at', 'game_winner_accusation_id',
+            'deductions_closed', 'finale_triggered_at', 'reveal_triggered_at',
+            'rescue_count', 'rescue_alert_count', 'traitors_revealed'
         ]
         placeholders = ','.join(['?'] * len(keys_to_clear))
         await db.execute(f"DELETE FROM game_state WHERE key IN ({placeholders})", keys_to_clear)
+        await db.execute("DELETE FROM game_state WHERE key LIKE 'team_4_%'")
         await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'registration')")
 
         await db.commit()
