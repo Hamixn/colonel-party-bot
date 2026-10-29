@@ -245,8 +245,10 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertIn("خان‌زنیان", texts.START_WELCOME_TEXT)
         self.assertIn("سرهنگ بهرام فرهمند", texts.START_WELCOME_TEXT)
         self.assertIn("آرش", texts.START_WELCOME_TEXT)
-        self.assertIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
-        self.assertIn("بازیکنان پرونده (The Investigators — فقط ۱۲ تا ۱۵ نفر)", texts.START_WELCOME_TEXT)
+        # The opening message must be story-only; role options are displayed after name/roster flow.
+        self.assertNotIn("نقش خود را انتخاب کنید", texts.START_WELCOME_TEXT)
+        self.assertNotIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
+        self.assertNotIn("بازیکنان پرونده (The Investigators", texts.START_WELCOME_TEXT)
 
         # 6 PM Meeting Location link
         self.assertIn("https://maps.app.goo.gl/U6Dz6SzEUdoTnNty7", texts.ACT_1_TEXT)
