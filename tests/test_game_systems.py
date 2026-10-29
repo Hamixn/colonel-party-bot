@@ -1,3 +1,4 @@
+import asyncio
 import os
 import unittest
 from pathlib import Path
@@ -63,7 +64,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_1b["riddle_num"], 2)
         self.assertEqual(
             res_1b["response_text"],
-            "✅ صفحهی حسابها ثبت شد. یک انتقال مالی بدون تأیید در دفتر شناسایی شده است. شمارهی حساب و نشان ثبتشده را برای تطبیق با فهرست کارکنان در میز مرکزی نگه دارید."
+            "✅ صفحه‌ی حساب‌ها ثبت شد. یک انتقال مالی بدون تأیید شناسایی شده است. شماره‌ی رسید و کد حساب را با فهرست کارکنان داخل پرونده‌ی خودتان تطبیق دهید؛ این مدرک به‌تنهایی هویت قاتل را ثابت نمی‌کند."
         )
 
     async def test_riddle_answers_success_team_2(self):
@@ -103,7 +104,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_3b["riddle_num"], 2)
         self.assertEqual(
             res_3b["response_text"],
-            "✅ فهرست بایگانی تأیید شد: پنج فرد متمایز در فهرست پرونده ثبت شدهاند. این عدد بهتنهایی هیچکس را مجرم نمیکند."
+            "✅ فهرست بایگانی تأیید شد: پنج فرد متمایز در فهرست صحنه ثبت شده‌اند. این عدد به‌تنهایی هیچ‌کس را مجرم نمی‌کند."
         )
 
     async def test_cross_team_code_rejection(self):
@@ -240,8 +241,9 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertIn("خان‌زنیان", texts.START_WELCOME_TEXT)
         self.assertIn("سرهنگ بهرام فرهمند", texts.START_WELCOME_TEXT)
         self.assertIn("آرش", texts.START_WELCOME_TEXT)
-        self.assertIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
-        self.assertIn("بازیکنان پرونده (The Investigators — فقط ۱۲ تا ۱۵ نفر)", texts.START_WELCOME_TEXT)
+        self.assertIn("رازِ ناگفته‌ی باغ سرهنگ", texts.START_WELCOME_TEXT)
+        self.assertNotIn("نقش خود را انتخاب کنید", texts.START_WELCOME_TEXT)
+        self.assertNotIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
 
         # 6 PM Meeting Location link
         self.assertIn("https://maps.app.goo.gl/U6Dz6SzEUdoTnNty7", texts.ACT_1_TEXT)
@@ -306,9 +308,20 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         guests = await database.get_all_guests()
         self.assertGreater(len(guests), 0)
 
+        # Seed a winning accusation to ensure reset clears the new tables too.
+        await database.record_team_accusation(
+            1, "نادر وثوق", 101,
+            "نمونه B و جراحت سر آرش",
+            "رسید R-17 و اختلاس مالی",
+            "نادر برای پنهان‌کردن اختلاس خود در صحنه حضور داشت و از افشای آن می‌ترسید."
+        )
+        self.assertIsNotNone(await database.get_game_winner())
+
         # Clean all guests
         deleted_count = await database.clean_all_guests()
         self.assertGreaterEqual(deleted_count, 1)
+        self.assertIsNone(await database.get_game_winner())
+        self.assertIsNone(await database.get_team_accusation_details(1))
 
         # Check roster is now empty
         after_guests = await database.get_all_guests()
@@ -457,6 +470,138 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c2, 2)
         self.assertEqual(c3, 3)
         self.assertEqual(c4, 4)
+
+
+
+    async def test_accusation_requires_distinct_evidence_and_first_valid_wins(self):
+        draft = await database.record_team_accusation(1, "نادر وثوق", 101)
+        self.assertEqual(draft["status"], "recorded")
+        self.assertFalse(draft["is_valid"])
+        self.assertIsNone(await database.get_game_winner())
+        draft_timestamp = draft["first_submitted_at"]
+
+        first = await database.record_team_accusation(
+            1, "نادر وثوق", 101,
+            "نمونه B و جراحت سر آرش",
+            "رسید R-17 و اختلاس مالی",
+            "نادر برای پنهان‌کردن اختلاس خود در صحنه حضور داشت و از افشای آن می‌ترسید."
+        )
+        self.assertTrue(first["is_valid"])
+        self.assertTrue(first["winner_created"])
+        self.assertEqual(first["first_submitted_at"], draft_timestamp)
+        winner = await database.get_game_winner()
+        self.assertEqual(winner["team_number"], 1)
+        winning_time = winner["winning_at"]
+
+        second = await database.record_team_accusation(
+            2, "نادر وثوق", 102,
+            "عکس ۲۲:۱۹ و انعکاس",
+            "کد NV-17 روی جلیقه‌ی زغالی",
+            "ادعای خروج قبل از ساعت بیست با عکس ۲۲:۱۹ تناقض دارد و حضور نادر را نشان می‌دهد."
+        )
+        self.assertTrue(second["is_valid"])
+        self.assertFalse(second["winner_created"])
+        after = await database.get_game_winner()
+        self.assertEqual(after["team_number"], 1)
+        self.assertEqual(after["winning_at"], winning_time)
+
+    async def test_competing_valid_accusations_race_for_one_winner(self):
+        submissions = await asyncio.gather(
+            database.record_team_accusation(
+                1, "نادر وثوق", 101,
+                "نمونه B و جراحت سر آرش",
+                "رسید R-17 و اختلاس مالی",
+                "نادر برای پنهان‌کردن اختلاس خود در صحنه حضور داشت و از افشای آن می‌ترسید."
+            ),
+            database.record_team_accusation(
+                2, "نادر وثوق", 102,
+                "عکس ۲۲:۱۹ و انعکاس",
+                "کد NV-17 روی جلیقه‌ی زغالی",
+                "ادعای خروج قبل از ساعت بیست با عکس ۲۲:۱۹ تناقض دارد و حضور نادر را نشان می‌دهد."
+            ),
+        )
+        self.assertEqual(sum(1 for result in submissions if result["winner_created"]), 1)
+        winner = await database.get_game_winner()
+        self.assertIn(winner["team_number"], (1, 2))
+        async with aiosqlite.connect(self.test_db_file) as db:
+            async with db.execute("SELECT COUNT(*) FROM game_winner") as cursor:
+                self.assertEqual((await cursor.fetchone())[0], 1)
+
+    async def test_team_specific_evidence_categories_are_required(self):
+        invalid = await database.record_team_accusation(
+            1, "نادر وثوق", 101,
+            "خون و نمونه B", "خون روی لبه‌ی استخر",
+            "نادر می‌خواست حقیقت مالی را پنهان کند و فرار کند."
+        )
+        self.assertEqual(invalid["status"], "insufficient_evidence")
+        self.assertIsNone(await database.get_game_winner())
+
+        valid = await database.record_team_accusation(
+            3, "نادر وثوق", 103,
+            "شهادت شیرین درباره‌ی هل‌دادن",
+            "گزارش پزشکی و جراحت سر",
+            "شهادت مستقیم و گزارش جراحت با روایت تصادف سازگار نیستند و نادر را به درگیری وصل می‌کنند."
+        )
+        self.assertTrue(valid["is_valid"])
+        self.assertEqual((await database.get_game_winner())["team_number"], 3)
+
+    async def test_atomic_team_solve_has_single_first_completion(self):
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.execute("""
+                INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name)
+                VALUES (104, 'investigator_1b', 'بازرس هم‌تیمی', 'role_player', 1, 'تیم خون')
+            """)
+            await db.commit()
+        results = await asyncio.gather(
+            database.check_team_riddle(101, "خون"),
+            database.check_team_riddle(104, "خون"),
+        )
+        self.assertEqual(sorted(item["status"] for item in results), ["already_solved", "riddle_solved"])
+        self.assertEqual(await database.get_game_state("team_1_riddle_1"), "1")
+        self.assertEqual(await database.get_game_state("team_2_riddle_1", "0"), "0")
+
+    async def test_three_teams_and_killer_outside_scoring_teams(self):
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.execute("""
+                INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name)
+                VALUES (104, 'investigator_4', 'بازرس چهارم', 'role_player', 1, 'تیم خون')
+            """)
+            await db.commit()
+        assigned = await database.assign_special_character_roles(force_reassign=True)
+        self.assertEqual(set(assigned), {"shirin", "keyvan", "fereydoun", "nader"})
+        self.assertIsNone(assigned["nader"]["team_number"])
+        self.assertEqual(assigned["nader"]["is_traitor"], 0)
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.executemany("""
+                INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name)
+                VALUES (?, ?, ?, 'role_player', 1, 'تیم خون')
+            """, [
+                (tid, f"investigator_{tid}", f"بازرس {tid}")
+                for tid in range(106, 115)
+            ])
+            await db.commit()
+        teams = await database.start_midnight_game()
+        self.assertEqual(set(teams), {1, 2, 3})
+        for team in teams.values():
+            self.assertTrue(team["members"])
+            self.assertIsNone(team["traitor"])
+            self.assertTrue(all(member.get("character_role") != "nader" for member in team["members"]))
+
+        async with aiosqlite.connect(self.test_db_file) as db:
+            await db.execute("""
+                INSERT INTO guests (telegram_id, full_name, role, team_number, team_name)
+                VALUES (105, 'بازیکن تیم چهارم نامعتبر', 'role_player', 4, 'تیم ۴')
+            """)
+            await db.commit()
+        rejected = await database.check_team_riddle(105, "آینه")
+        self.assertEqual(rejected["status"], "no_team")
+
+    async def test_finale_closes_accusations_once(self):
+        self.assertTrue(await database.trigger_finale_once())
+        self.assertFalse(await database.trigger_finale_once())
+        self.assertEqual(await database.get_game_state("deductions_closed"), "1")
+        result = await database.record_team_accusation(1, "نادر وثوق", 101)
+        self.assertEqual(result["status"], "closed")
 
 
 if __name__ == "__main__":

@@ -47,8 +47,9 @@ async def cmd_admin_help(message: Message):
         "📊 `/stats` — مشاهده آمار زنده ثبت‌نام، ظرفیت‌ها و تسخیرشدگان\n"
         "📋 `/list` — دریافت لیست متنی مهمانان + فایل کامل اکسل/CSV\n"
         "🎭 `/start_social_game` — کلید زدن بازی ۱۹:۳۰ (تعیین ۳ تسخیرشده و ارسال ماموریت‌ها با استیکر)\n"
-        "🌑 `/start_midnight_game` — کلید زدن بازی حیاط (ساعت ۲۴:۰۰ نیمه‌شب، ارسال فانوس سرخ، تیم‌ها، خائنین و معماها)\n"
-        "🗝 `/reveal_traitors` — اعلام عمومی و افشای ۳ تسخیرشده و خائنین\n"
+        "🌑 `/start_midnight_game` — آغاز سه تیم رقیب و ارسال راهنمای ایمن نیمه‌شب\n"
+        "💡 `/hint <team> <level>` — ارسال راهنمای محرمانه به همان تیم (سطح ۱ تا ۳)\n"
+        "🗝 `/reveal_traitors` — افشای قاتل، سه شاهد و تیم برنده\n"
         "🚗 `/assign_carpool` — نمایش وضعیت کاروان خودروها\n"
         "📢 `/broadcast <متن>` — ارسال پیام همگانی به تمام مهمانان\n"
         "⚠️ `/broadcast_crisis` (یا `/crisis_broadcast`) — ارسال پیام بحران پیش از نیمه‌شب (ساعت ۲۳:۵۰)\n"
@@ -235,9 +236,8 @@ async def cmd_start_social_game(message: Message, bot: Bot):
         )
         return
 
-    # Ensure 3 teams are initialized
-    await database.start_midnight_game(team_count=3)
-    # Assign special characters
+    # Assign three witness sticker-carriers and a separate scripted Nader role.
+    # Competitive team assignments remain hidden until the midnight phase.
     assigned_roles = await database.assign_special_character_roles()
     await database.set_game_state("social_game_started", "1")
     await database.set_game_state("force_unlock_missions", "1")
@@ -303,26 +303,28 @@ async def cmd_start_social_game(message: Message, bot: Bot):
 
     await message.answer(
         f"✅ **بازی اجتماعی ساعت ۱۹:۳۰ با موفقیت آغاز شد!**\n\n"
-        f"🎭 کارت‌های محرمانه ۴ شخصیت اصلی (۳ شاهد + نادر): {role_success} ارسال موفق (خطا: {role_failed})\n"
-        f"📜 ماموریت‌های اجتماعی برای {regular_success} بازرس دیگر ارسال گردید."
+        f"🎭 کارت‌های محرمانه‌ی سه شاهد و نقش‌آفرین نادر: {role_success} ارسال موفق (خطا: {role_failed})\n"
+        f"📜 مأموریت‌های اجتماعی برای {regular_success} بازرس دیگر ارسال گردید. تیم‌بندی تا نیمه‌شب مخفی می‌ماند."
     )
 
 @router.message(Command("start_midnight_game"))
 async def cmd_start_midnight_game(message: Message, bot: Bot):
     """
-    Phase 3 (24:00 Midnight Horror Game):
-    1. Splits players into 4 teams.
-    2. Appoints 1 secret traitor per team.
-    3. Sends Red Lantern image + rules to all players.
-    4. Secretly DMs each traitor their sabotage mission.
+    Phase 3 (00:00): assigns three private competing teams with independent
+    paper dossiers. Nader is a scripted role outside the scoring teams; no
+    extra traitors are assigned to teams.
     """
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
+    if await database.get_game_state("midnight_game_started", "0") == "1":
+        await message.answer("ℹ️ بازی نیمه‌شب قبلاً آغاز شده است. برای بررسی وضعیت از /team و برای راهنما از /hint استفاده کنید.")
+        return
+
     teams = await database.start_midnight_game()
     if not teams:
-        await message.answer("⚠️ بازیکن ثبت‌شده‌ای برای شروع بازی نیمه‌شب وجود ندارد.")
+        await message.answer("⚠️ برای شروع رقابت کامل به ۱۲ تا ۱۵ بازرس و یک نقش‌آفرین نادر نیاز است (حداقل ۱۳ نفر در گروه نقش‌آفرینان).")
         return
 
     red_lantern_path = Path("assets/images/red_lantern.jpg")
@@ -330,7 +332,6 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
     for team_num, t_info in teams.items():
         team_name = t_info["name"]
         members = t_info["members"]
-        traitor = t_info["traitor"]
         all_member_names = [m["full_name"] for m in members]
 
         for m in members:
@@ -339,11 +340,9 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
                 continue
 
             lantern_caption = (
-                "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-                "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز نگه دارید.\n\n"
-                "⚠️ **تنها نوری که می‌توانید استفاده کنید و سرهنگ به آن حساس نیست همین است!**\n"
-                "سرهنگ به نور سرخ تاریک‌خانه‌اش الفت داشته و به آن کاملاً نابیناست. "
-                "روشن کردن هرگونه چراغ‌قوه سفید یا صفحه عادی گوشی = حمله و شکار فوری توسط روح سرهنگ!"
+                "🔴 **[فانوس سرخ دیجیتال — جلوه‌ی نمایشی بازی]** 🕯\n\n"
+                "تصویر قرمز را برای فضای داستان باز کنید. این تصویر جایگزین روشنایی ایمنی نیست. "
+                "مسیرها، پله‌ها، اطراف استخر و خروجی‌ها باید روشن بمانند."
             )
 
             rules_msg = (
@@ -362,12 +361,7 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             except Exception as e:
                 print(f"Error briefing {m['full_name']}: {e}")
 
-            # Send secret traitor DM if this player is the appointed traitor
-            if traitor and m["id"] == traitor["id"]:
-                try:
-                    await bot.send_message(chat_id=tid, text=texts.TRAITOR_SECRET_DM)
-                except Exception as e:
-                    print(f"Error sending traitor DM to {m['full_name']}: {e}")
+            # No extra saboteur/traitor is assigned to any scoring team.
 
     # Notify blondes about movie & safety in salon
     blondes = await database.get_all_telegram_ids(role_filter="role_blonde")
@@ -376,21 +370,34 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
             await bot.send_message(
                 chat_id=b_tid,
                 text=(
-                    "🍿 **[ساعت ۲۴:۰۰ — زنگ خاموشی عمارت و آغاز بازی حیاط نواخته شد!]**\n\n"
-                    "چراغ‌های حیاط خاموش شد و بازیکنان با فانوس سرخ وارد تاریکی باغ شدند!\n"
-                    "پخش فیلم سینمایی ترسناک در سالن گرم با نوشیدنی و پاپ‌کورن آغاز گردید.\n\n"
-                    "💡 یادآوری: در صورت بحرانی شدن اوضاع حیاط، می‌توانید با دکمه‌ی «💡 روشن کردن نور حیات باغ» موقتاً ارواح را کور کنید."
+                    "🍿 **[ساعت ۲۴:۰۰ — آغاز تحقیقات نیمه‌شب]**\n\n"
+                    "نورپردازی نمایشی کم می‌شود، اما مسیرها، اطراف استخر و خروجی‌های ایمن روشن می‌مانند.\n"
+                    "بازرسان، اسناد کاغذی تیم خود را بررسی می‌کنند؛ در سالن نیز پخش فیلم و پذیرایی ادامه دارد.\n\n"
+                    "💡 درخواست ایمنی را هر زمان با /rescue ارسال کنید؛ این دستور هرگز محدود نمی‌شود."
                 )
             )
         except Exception:
             pass
 
-    summary = ["🔦 **بازی ساعت ۲۴:۰۰ حیاط با موفقیت آغاز گردید!**\n"]
-    for t_num, t_info in teams.items():
-        tr_name = t_info["traitor"]["full_name"] if t_info.get("traitor") else "نامشخص"
-        m_count = len(t_info["members"])
-        summary.append(f"• **{t_info['name']}** ({m_count} نفر) — خائن مخفی: {tr_name}")
+    # Give Nader a private performance cue; the identity stays out of team messages.
+    characters = await database.get_special_characters()
+    nader = characters.get("nader")
+    if nader and nader.get("telegram_id"):
+        try:
+            await bot.send_message(
+                chat_id=nader["telegram_id"],
+                text=(
+                    "🎭 **یادآوری محرمانه‌ی نقش نادر**\n\n"
+                    "شما عضو هیچ تیم امتیازگیری نیستید. در زمان اعلام میزبان، طبق تمرین وارد صحنه شوید "
+                    "و فقط ماکت کاغذی مدرک پایانی را بردارید. به مهمانان یا تجهیزات واقعی دست نزنید."
+                )
+            )
+        except Exception:
+            pass
 
+    summary = ["🔦 **سه تیم رقیب نیمه‌شب آماده‌اند.**\n"]
+    for t_num, t_info in teams.items():
+        summary.append(f"• **{t_info['name']}** ({len(t_info['members'])} نفر) — دو پاکت اختصاصی")
     await message.answer("\n".join(summary))
 
 @router.message(Command("reveal_traitors"))
@@ -403,28 +410,48 @@ async def cmd_reveal_traitors(message: Message, bot: Bot):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
+    if await database.get_game_state("reveal_triggered_at", ""):
+        await message.answer("ℹ️ افشای نهایی قبلاً انجام شده است؛ پیام عمومی تکرار نشد.")
+        return
+
     data = await database.get_reveal_manifest()
-    hunters = data.get("hunters", [])
-    traitors = data.get("traitors", [])
+    witnesses = data.get("witnesses", [])
+    killer = data.get("killer")
+    winner = data.get("winner")
 
-    h_lines = []
-    for idx, h in enumerate(hunters, 1):
-        uname = f"(@{h['telegram_username']})" if h.get("telegram_username") else ""
-        h_lines.append(f"{idx}. {h['full_name']} {uname}")
-    h_str = "\n".join(h_lines) if h_lines else "اطلاعاتی ثبت نشده است."
+    role_labels = {
+        "shirin": "شیرین نوری — شاهد مستقیم",
+        "keyvan": "کیوان رستگار — عکاس",
+        "fereydoun": "دکتر فریدون مهر — پزشک",
+    }
+    witness_lines = []
+    for idx, person in enumerate(witnesses, 1):
+        uname = f"(@{person['telegram_username']})" if person.get("telegram_username") else ""
+        label = role_labels.get(person.get("character_role"), "شاهد پرونده")
+        witness_lines.append(f"{idx}. {label}: {person['full_name']} {uname}")
+    witnesses_text = "\n".join(witness_lines) if witness_lines else "نقش شاهدان در سیستم ثبت نشده است."
+    killer_name = killer.get("full_name", "نادر وثوق") if killer else "نادر وثوق (نقش داستانی)"
 
-    t_lines = []
-    for idx, t in enumerate(traitors, 1):
-        uname = f"(@{t['telegram_username']})" if t.get("telegram_username") else ""
-        t_label = t.get("team_name") or f"تیم {t.get('team_number', '')}"
-        t_lines.append(f"{idx}. {t['full_name']} ({t_label}) {uname}")
-    t_str = "\n".join(t_lines) if t_lines else "اطلاعاتی ثبت نشده است."
+    if winner:
+        team_label = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}.get(winner.get("team_number"), "تیم نامشخص")
+        winner_line = f"🏆 **برنده‌ی رقابت:** {team_label}"
+        evidence_line = (
+            f"مدرک ۱: {winner.get('evidence_1', '')}\n"
+            f"مدرک ۲: {winner.get('evidence_2', '')}\n"
+            f"استدلال تیم: {winner.get('rationale', '')}"
+        )
+    else:
+        winner_line = "🏁 هیچ تیمی تا پایان مهلت اتهام کامل و صحیح ثبت نکرد."
+        evidence_line = "میزبان حقیقت پرونده را در روایت نهایی فاش می‌کند."
 
     reveal_text = texts.REVEAL_ANNOUNCEMENT.format(
-        hunters_list=h_str,
-        traitors_list=t_str
+        witnesses_list=witnesses_text,
+        killer_name=killer_name,
+        winner_line=winner_line,
+        evidence_line=evidence_line,
     )
-
+    from datetime import datetime, timezone
+    await database.set_game_state("reveal_triggered_at", datetime.now(timezone.utc).isoformat())
     success, failed = await send_broadcast(bot, reveal_text)
     await message.answer(f"✅ پیام افشای نهایی به {success} مهمان مخابره شد. (خطا: {failed})")
 
@@ -530,13 +557,57 @@ async def cmd_trigger_darkroom(message: Message, bot: Bot):
         await message.answer("⛔️ دسترسی غیرمجاز.")
         return
 
-    from datetime import datetime, timezone
-    await database.set_game_state("game_phase", "finale")
-    await database.set_game_state("finale_triggered_at", datetime.now(timezone.utc).isoformat())
-
+    triggered = await database.trigger_finale_once()
+    if not triggered:
+        await message.answer("ℹ️ فینال قبلاً فعال شده است؛ پیام تکراری ارسال نشد.")
+        return
     text = game.DARKROOM_FINAL_PROMPT
     success, failed = await send_broadcast(bot, text, role_filter="role_player")
-    await message.answer(f"🕯 سکانس نهایی تاریکخانه برای {success} بازرس ارسال شد. (خطا: {failed})")
+    await message.answer(
+        f"🕯 فینال آغاز شد و مهلت اتهام‌ها بسته شد. پیام برای {success} نفر ارسال شد. (خطا: {failed})"
+    )
+
+@router.message(Command("hint"))
+async def cmd_hint(message: Message, bot: Bot):
+    """Admin-only progressive hints, delivered to one team privately."""
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+    parts = (message.text or "").split()
+    if len(parts) != 3:
+        await message.answer("فرمت صحیح: /hint <team 1-3> <level 1-3>")
+        return
+    try:
+        team_num, level = int(parts[1]), int(parts[2])
+    except ValueError:
+        await message.answer("شماره‌ی تیم و سطح راهنما باید عدد باشند.")
+        return
+    if team_num not in (1, 2, 3) or level not in (1, 2, 3):
+        await message.answer("تیم باید ۱ تا ۳ و سطح راهنما باید ۱ تا ۳ باشد.")
+        return
+    hint = game.HINTS.get(team_num, {}).get(level)
+    if not hint:
+        await message.answer("راهنمای این تیم موجود نیست.")
+        return
+    labels = {1: "تیم خون", 2: "تیم سایه", 3: "تیم سکوت"}
+    delivered, failed = 0, 0
+    for member in await database.get_team_members(team_num):
+        tid = member.get("telegram_id")
+        if not tid:
+            continue
+        try:
+            await bot.send_message(
+                chat_id=tid,
+                text=f"💡 **راهنمای محرمانه — {labels[team_num]} / سطح {level}**\n\n{hint}"
+            )
+            delivered += 1
+        except Exception:
+            failed += 1
+    await message.answer(
+        f"✅ راهنمای سطح {level} برای {labels[team_num]} ارسال شد. "
+        f"ارسال موفق: {delivered}؛ خطا: {failed}. تیم‌های دیگر مطلع نشدند."
+    )
+
 
 @router.message(Command("unlock_missions"))
 async def cmd_unlock_missions(message: Message):
