@@ -183,10 +183,7 @@ def evaluate_structured_accusation(
     evidence_point_1: str,
     evidence_point_2: str
 ) -> dict:
-    """
-    Require two distinct evidence fields, each supporting a different canonical
-    category from the team's own dossier. Motive text cannot substitute for evidence.
-    """
+    """Require two different team-specific evidence categories in separate fields."""
     suspect = normalize_mystery_text(suspect_name)
     aliases = ("نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough")
     other_suspects = (
@@ -247,139 +244,41 @@ def evaluate_structured_accusation(
             if normalize_mystery_text(keyword)
         )
 
-    team_categories = categories.get(team_number)
     matched_points = []
+    team_categories = categories.get(team_number)
     if distinct_fields and team_categories:
         p1_a = has_keyword(ev1, team_categories["a"])
         p1_b = has_keyword(ev1, team_categories["b"])
         p2_a = has_keyword(ev2, team_categories["a"])
         p2_b = has_keyword(ev2, team_categories["b"])
 
-        # The two fields must independently support opposite categories. A
-        # single phrase containing both kinds of keyword cannot win by itself.
         if p1_a and p2_b:
-            matched_points = [
-                "مدرک اول: " + ("یافته‌ی جسمانی" if team_number == 1 else "عکس و بازتاب" if team_number == 2 else "شهادت شاهدان"),
-                "مدرک دوم: " + ("ثبت مالی" if team_number == 1 else "تناقض زمانی" if team_number == 2 else "فهرست بایگانی"),
-            ]
+            cats = ("a", "b")
         elif p1_b and p2_a:
+            cats = ("b", "a")
+        else:
+            cats = None
+
+        if cats:
+            point_labels = {
+                1: {"a": "یافته‌ی جسمانی", "b": "ثبت مالی"},
+                2: {"a": "عکس و بازتاب", "b": "تناقض زمانی"},
+                3: {"a": "شهادت شاهدان", "b": "فهرست بایگانی"},
+            }
             matched_points = [
-                "مدرک اول: " + ("ثبت مالی" if team_number == 1 else "تناقض زمانی" if team_number == 2 else "فهرست بایگانی"),
-                "مدرک دوم: " + ("یافته‌ی جسمانی" if team_number == 1 else "عکس و بازتاب" if team_number == 2 else "شهادت شاهدان"),
+                f"مدرک اول: {point_labels[team_number][cats[0]]}",
+                f"مدرک دوم: {point_labels[team_number][cats[1]]}",
             ]
 
     is_correct = bool(is_nader and len(matched_points) == 2)
-    feedback = (
-        "✅ اتهام کامل و مستند است."
-        if is_correct
-        else "❌ نام مظنون و دو مدرک متمایز از دو دسته‌ی مرتبط را بررسی کنید."
-    )
     return {
         "is_correct": is_correct,
         "is_suspect_correct": is_nader,
         "matched_points": matched_points,
-        "feedback": feedback,
+        "feedback": (
+            "✅ اتهام کامل و مستند است."
+            if is_correct
+            else "❌ نام مظنون و دو مدرک متمایز از دو دسته‌ی مرتبط را بررسی کنید."
+        ),
     }
 
-
-    team_number: int,
-    suspect_name: str,
-    motive_opportunity: str,
-    evidence_point_1: str,
-    evidence_point_2: str
-) -> dict:
-    """
-    Evaluates a team's structured accusation.
-    Requirements:
-    1. Suspect name must normalize to 'نادر وثوق' or 'Nader Vosough'.
-    2. Motive/opportunity and evidence points must match at least 2 distinct valid evidence points
-       from the specific team's dossier:
-       - Team 1: Pool blood/head injury (ضربه سر / استخر / خون), Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی).
-       - Team 2: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹), Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی).
-       - Team 3: Witness statements (شیرین / کیوان / دکتر مهر / شهادت), Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر).
-    Returns {"is_correct": bool, "matched_points": list, "feedback": str}.
-    """
-    norm_suspect = normalize_mystery_text(suspect_name)
-
-    # Suspect validation: must normalize to Nader Vosough and NOT any other suspect
-    other_suspects = [
-        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر", "فریدون مهر",
-        "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند", "بهرام فرهمند", "سرهنگ", "آرش",
-        "shirin", "keyvan", "fereydoun", "bahram", "arash"
-    ]
-    is_other = any(o in norm_suspect for o in other_suspects)
-    nader_aliases = ["نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough"]
-    is_suspect_correct = (not is_other) and any(alias in norm_suspect for alias in nader_aliases)
-
-    norm_evidence = normalize_mystery_text(f"{motive_opportunity} {evidence_point_1} {evidence_point_2}")
-
-    matched_points = []
-
-    if team_number == 1:
-        # Point 1: Pool blood / head injury (ضربه سر / استخر / خون)
-        p1_kw = [
-            "ضربه سر", "استخر", "خون", "جراحت سر", "ضربه", "سر", "خونریزی",
-            "کالبدشکافی", "پیش از ورود به اب", "پیش از ورود به آب", "زخمی",
-            "blood", "head", "injury", "pool", "trauma"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("ضربه سر و آثار خون پیش از غرق شدن در استخر")
-
-        # Point 2: Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی)
-        p2_kw = [
-            "اختلاس", "حساب", "دفتر مالی", "دفترچه", "84102", "1356",
-            "انتقال مالی", "سرقت مالی", "کسری", "مالی", "تراکنش", "دفتر حساب",
-            "ledger", "embezzlement", "account"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("انگیزه مالی و اختلاس در حساب شماره ۸۴۱۰۲ سال ۱۳۵۶")
-
-    elif team_number == 2:
-        # Point 1: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹)
-        p1_kw = [
-            "انعکاس", "سایه", "2219", "22:19", "پنجره", "شیشه", "عکس",
-            "تصویر", "قامت", "بازتاب", "silhouette", "reflection", "window", "shadow", "photo"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("انعکاس سایه در شیشه پنجره در عکس ساعت ۲۲:۱۹")
-
-        # Point 2: Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی)
-        p2_kw = [
-            "خروج پس از 22", "خروج پس از ۲۲", "تناقض زمانی", "تناقض", "خروج",
-            "ترک باغ", "ساعت 22", "ادعا", "زمان خروج", "حضور پس از ساعت 22",
-            "timeline", "contradiction", "departure"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("تناقض زمانی و رد ادعای خروج قبل از ساعت ۲۲:۰۰")
-
-    elif team_number == 3:
-        # Point 1: Witness statements (شیرین / کیوان / دکتر مهر / شهادت)
-        p1_kw = [
-            "شیرین", "کیوان", "دکتر مهر", "فریدون مهر", "شهادت", "شاهد",
-            "شاهدان", "کتمان", "تهدید", "درگیری", "نزاع", "سکوت",
-            "witness", "testimony", "threat"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("شهادت شاهدان عینی صحنه و کتمان حقیقت تحت تهدید")
-
-        # Point 2: Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر)
-        p2_kw = [
-            "فهرست بایگانی", "5 نفر", "پنج نفر", "بایگانی", "فهرست", "5",
-            "پنج", "ارشیو", "آرشیو", "دفترچه", "تطبیق",
-            "archive", "five", "suspects", "index"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("بررسی فهرست بایگانی ۵ مظنون و انزوای نادر وثوق")
-
-    is_correct = bool(is_suspect_correct and len(matched_points) >= 2)
-
-    if is_correct:
-        feedback = "✅ اتهام کامل و مستند است. هویت نادر وثوق به عنوان عامل اصلی با حداقل دو مدرک معتبر از پرونده تایید می‌شود."
-    else:
-        feedback = "❌ اتهام واردشده فاقد مدارک کافی یا انطباق کامل با اسناد این پرونده است."
-
-    return {
-        "is_correct": is_correct,
-        "matched_points": matched_points,
-        "feedback": feedback
-    }
