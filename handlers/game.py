@@ -318,6 +318,11 @@ async def cmd_solve(message: Message, bot: Bot):
         await message.answer("🍿 شما همراه مهمانی (بلوند بی‌گناه) هستید و نیازی به ورود به معمای تاریکی حیاط ندارید!")
         return
 
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase != "midnight_investigation":
+        await message.answer("⏳ ثبت پاسخ معما فقط پس از اعلام رسمی آغاز تحقیقات نیمه‌شب فعال می‌شود.")
+        return
+
     team_num = guest.get("team_number")
     if not team_num or team_num < 1 or team_num > 4:
         await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید یا فاز کشف مدارک هنوز کلید نخورده است.")
@@ -422,92 +427,83 @@ async def cmd_solve(message: Message, bot: Bot):
 @router.message(Command("team"))
 @router.message(F.text == "🔦 تیم من در حیاط")
 async def cmd_team(message: Message):
-    """Shows player's midnight team, teammates, and secret traitor brief."""
+    """Reveal team assignment only after the host starts midnight."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با /start در سیستم ثبت‌نام کنید.")
         return
-
     if guest.get("role") != "role_player":
-        await message.answer(
-            "🍿 شما در گروه بلوندهای بی‌گناه هستید و شب را در سالن گرم همراه با فیلم و تنقلات سپری خواهید کرد."
-        )
+        await message.answer("🍿 شما در گروه بلوندهای بی‌گناه هستید و شب را در سالن گرم همراه فیلم و پذیرایی می‌گذرانید.")
+        return
+
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        await message.answer("⏳ تیم شما تا زمان اعلام رسمی شروع تحقیقات نیمه‌شب محرمانه می‌ماند.")
         return
 
     team_num = guest.get("team_number")
-    if not team_num and is_tester(message.from_user.id, message.from_user.username):
+    if is_tester(message.from_user.id, message.from_user.username) and team_num not in (1, 2, 3):
         await database.assign_tester_team(message.from_user.id, 1)
         guest = await database.get_guest_by_telegram_id(message.from_user.id)
-        team_num = 1
-
-    if not team_num:
-        await message.answer(
-            "⏳ **تیم‌های حیاط هنوز نهایی نشده‌اند.**\n"
-            "تیم‌بندی‌های حیاط در ساعت ۲۴:۰۰ هم‌زمان با خاموشی و آغاز بازی اعلام خواهد شد."
-        )
+        team_num = guest.get("team_number")
+    if team_num not in (1, 2, 3):
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید.")
         return
 
-    teammates = await database.get_team_members(team_num)
-    names = [m["full_name"] for m in teammates]
-    team_name = guest.get("team_name") or f"تیم {team_num}"
-
-    r1_solved = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2_solved = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
-
-    traitor_text = ""
-    if guest.get("is_traitor") == 1:
-        traitor_text = (
-            "\n\n🐍 **[پیام فوق‌محرمانه: تو خائن تیمت هستی!]**\n"
-            "هدف تو این است که تیمت در اتاق عمارت کلمات رمز را اشتباه در گوش جنازه سرهنگ بگوید! "
-            "سعی کن در تاریکی صدای تله‌ها را دربیاوری یا تیمت را قانع کنی که کلمه دوم رمز «مرگ» است نه «سایه»!"
-        )
-
+    members = await database.get_team_members(team_num)
+    names = [m["full_name"] for m in members]
+    labels = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
     msg = (
-        f"🔦 **اطلاعات تیم شما در بازی نیمه‌شب حیاط:**\n\n"
-        f"🏷 **نام تیم:** {team_name}\n"
-        f"👥 **هم‌تیمی‌های شما:** {'، '.join(names)}\n\n"
-        f"📊 **وضعیت معماها:**\n"
-        f"• پاکت اول: {'✅ حل شد' if r1_solved else '⏳ در حال جستجو'}\n"
-        f"• پاکت دوم: {'✅ حل شد' if r2_solved else '⏳ در حال جستجو'}\n\n"
-        f"💡 پاسخ هر پاکت را با دستور `/solve <پاسخ>` ارسال کنید."
-        f"{traitor_text}"
+        f"🔦 **پرونده‌ی محرمانه‌ی {labels[team_num]}**\n\n"
+        f"👥 هم‌تیمی‌ها: {'، '.join(names)}\n\n"
+        f"📄 پاکت اول: {'✅ ثبت شده' if r1 else '⏳ بررسی نشده'}\n"
+        f"📄 پاکت دوم: {'✅ ثبت شده' if r2 else '⏳ بررسی نشده'}\n\n"
+        "سه تیم مستقل رقابت می‌کنند؛ اطلاعات تیم‌های دیگر محرمانه است."
     )
+    if guest.get("is_traitor") == 1:
+        msg += "\n\n🐍 نقش محرمانه: در بازی اجتماعی مأموریت گمراه‌سازی به شما داده شده؛ ایمنی کسی را به خطر نیندازید."
     await message.answer(msg)
 
 @router.message(Command("rescue"))
 @router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ", "🆘 کمک و امداد اضطراری", "🆘 امداد"]))
 async def cmd_rescue(message: Message, bot: Bot):
-    """
-    Safety emergency alert. Logs alert to DB, notifies admin immediately, reassuring user.
-    Unblocked under all conditions.
-    """
+    """Always-available safety alert; red-light gameplay never overrides real lighting."""
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     caller_name = guest.get("full_name") if guest else (message.from_user.full_name or str(message.from_user.id))
     details = f"درخواست امداد از طرف {caller_name}"
     alert_num = await database.record_rescue_alert(message.from_user.id, details=details)
 
-    if config.ADMIN_USER_ID != 0:
+    alert_sent = False
+    if config.ADMIN_USER_ID:
         try:
             await bot.send_message(
                 chat_id=config.ADMIN_USER_ID,
                 text=(
-                    f"🚨 **[هشدار اضطراری /rescue]**\n\n"
-                    f"👤 **مهمان:** {caller_name} (`{message.from_user.id}`)\n"
-                    f"🔢 **هشدار شماره:** {alert_num}\n"
-                    f"⏱ **زمان:** {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}"
+                    "🚨 **[هشدار اضطراری / درخواست کمک — باغ سرهنگ]**\n\n"
+                    f"مهمان: {caller_name} ({message.from_user.id})\n"
+                    f"شماره‌ی درخواست: {alert_num}\n"
+                    f"جزئیات: {details}\n"
+                    f"زمان: {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}\n\n"
+                    "فوراً حضوری وضعیت مهمان را بررسی کنید و روشنایی ایمن مسیرها را فعال کنید."
                 )
             )
+            alert_sent = True
         except Exception:
-            pass
+            alert_sent = False
 
-    reassuring_msg = (
-        "🔴 **[قانون تاریکی مطلق باغ]**\n\n"
-        "طبق سناریوی عمارت، هیچ نوری از داخل سالن برای حیاط روشن نخواهد شد.\n"
-        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند.\n\n"
-        "🆘 **پیام امداد شما به میزبان و تیم پشتیبانی عمارت مخابره شد.**\n"
-        "آرامش خود را حفظ کنید. تیم اجرایی فوراً وضعیت شما را پیگیری می‌کند."
-    )
-    await message.answer(reassuring_msg)
+    if alert_sent:
+        await message.answer(
+            "🚨 درخواست شما ثبت و به مسئول اجرا ارسال شد. پیام امداد شما به میزبان و تیم پشتیبانی عمارت مخابره شد. "
+            "حرکت را متوقف کنید و نزدیک‌ترین مسئول حاضر را صدا بزنید؛ مسیرها، اطراف استخر و خروجی‌ها باید روشن بمانند. فانوس سرخ جایگزین روشنایی ایمنی نیست."
+        )
+    else:
+        await message.answer(
+            "🚨 درخواست شما ثبت شد، اما ارسال خودکار به مسئول اجرا تأیید نشد. همین حالا حضوری مسئول اجرا را صدا بزنید. "
+            "حرکت را متوقف کنید و روشنایی ایمنی مسیر، پله‌ها، اطراف استخر و خروجی‌ها را برقرار کنید."
+        )
+
 
 @router.message(Command("accuse"))
 async def cmd_accuse(message: Message, bot: Bot):
@@ -529,8 +525,13 @@ async def cmd_accuse(message: Message, bot: Bot):
         return
 
     team_num = guest.get("team_number")
-    if not team_num:
-        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید.")
+    if team_num not in (1, 2, 3):
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید.")
+        return
+
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction"):
+        await message.answer("⏳ ثبت اتهام فقط در زمان رسمی تحقیقات نیمه‌شب فعال است.")
         return
 
     raw_payload = message.text.partition(" ")[2].strip()
@@ -548,6 +549,12 @@ async def cmd_accuse(message: Message, bot: Bot):
             f"{curr_str}"
         )
         await message.answer(help_text, reply_markup=keyboards.accuse_suspects_kb())
+        return
+
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await message.answer("🔎 ابتدا هر دو پاکت اختصاصی تیم خود را حل کنید؛ سپس اتهام مستدل ثبت می‌شود.")
         return
 
     # Parse payload
@@ -625,69 +632,47 @@ async def cmd_accuse(message: Message, bot: Bot):
     # Always respond neutrally without disclosing culprit
     await message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
 
-@router.callback_query(F.data.startswith("accuse_"))
-async def cb_accuse(callback: CallbackQuery, bot: Bot):
-    """Handles inline button accusation selection."""
-    if await database.is_deductions_closed():
-        await callback.answer("مهلت ثبت اتهام توسط میزبان به پایان رسیده است!", show_alert=True)
-        await callback.message.answer("⛔️ مهلت ثبت اتهام توسط میزبان به پایان رسیده است.")
-        return
 
+@router.callback_query(F.data.startswith("accuse_"))
+async def cb_accuse(callback: CallbackQuery, bot: Bot | None = None):
+    """Suspect buttons never submit an incomplete accusation."""
+    if await database.is_deductions_closed():
+        await callback.answer("مهلت ثبت اتهام توسط میزبان به پایان رسیده است.", show_alert=True)
+        return
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
-        await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
+        await callback.answer("اطلاعات شما یافت نشد.", show_alert=True)
         return
-
     team_num = guest.get("team_number")
-    if not team_num:
-        await callback.answer("شما در تیمی قرار ندارید!", show_alert=True)
+    if guest.get("role") != "role_player" or team_num not in (1, 2, 3):
+        await callback.answer("ثبت اتهام فقط برای سه تیم رقابتی است.", show_alert=True)
         return
 
-    suspect_key = callback.data.replace("accuse_", "").strip()
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction"):
+        await callback.answer("هنوز زمان ثبت اتهام نرسیده است.", show_alert=True)
+        return
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await callback.answer("ابتدا هر دو پاکت تیم خود را ثبت کنید.", show_alert=True)
+        return
+
+    key = callback.data.removeprefix("accuse_")
     name_map = {
         "نادر": "نادر وثوق",
         "شیرین": "شیرین نوری",
         "کیوان": "کیوان رستگار",
         "دکتر": "دکتر فریدون مهر",
-        "سرهنگ": "سرهنگ بهرام فرهمند"
+        "سرهنگ": "سرهنگ بهرام فرهمند",
     }
-    suspect_name = name_map.get(suspect_key, suspect_key)
-
-    eval_res = game.evaluate_structured_accusation(
-        team_number=team_num,
-        suspect_name=suspect_name,
-        motive_opportunity="",
-        evidence_point_1="",
-        evidence_point_2=""
+    suspect = name_map.get(key, key)
+    await callback.answer("نام مظنون انتخاب شد.")
+    await callback.message.answer(
+        f"مظنون انتخاب‌شده: **{suspect}**\n\n"
+        "این انتخاب هنوز اتهام ثبت‌شده نیست. برای ثبت نظریه‌ی محرمانه، دستور کامل را با انگیزه و دو مدرک متمایز ارسال کنید:\n"
+        f"/accuse {suspect} | انگیزه یا فرصت | مدرک اول از پرونده‌ی تیم شما | مدرک دوم از دسته‌ای متفاوت"
     )
-    rec_res = await database.record_structured_accusation(
-        team_id=team_num,
-        team_number=team_num,
-        telegram_id=callback.from_user.id,
-        suspect_name=suspect_name,
-        motive_opportunity="",
-        evidence_point_1="",
-        evidence_point_2="",
-        is_correct=eval_res["is_correct"]
-    )
-
-    if rec_res.get("is_first_winner") and config.ADMIN_USER_ID != 0:
-        admin_alert = texts.ADMIN_WINNER_ALERT.format(
-            team_number=team_num,
-            team_name=guest.get("team_name") or f"تیم {team_num}",
-            submitter_name=guest.get("full_name") or str(callback.from_user.id),
-            telegram_id=callback.from_user.id,
-            submitted_at=datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
-            suspect_name=suspect_name,
-            matched_points="، ".join(eval_res.get("matched_points", [])) or "مدارک منطبق پرونده"
-        )
-        try:
-            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=admin_alert)
-        except Exception:
-            pass
-
-    await callback.answer("نظریه ثبت شد!")
-    await callback.message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
 
 @router.message(Command("lantern"))
 @router.message(Command("red_lantern"))
@@ -695,12 +680,9 @@ async def cb_accuse(callback: CallbackQuery, bot: Bot):
 async def cmd_red_lantern(message: Message):
     """Sends the Red Lantern full-screen phone image + survival instructions."""
     caption = (
-        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-        "📱 **دستورالعمل مهم:** این تصویر را به صورت **تمام‌صفحه (Full-Screen)** روی سیستم یا گوشی خود باز کنید و نور صفحه را بالا ببرید.\n\n"
-        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
-        "سرهنگ در پاییز ۱۳۵۶ در تاریک‌خانه عکاسی‌اش به نور سرخ الفت داشته و به آن کاملاً نابیناست؛ "
-        "اما هرگونه نور سفید، چراغ‌قوه یا صفحه عادی گوشی فوراً سرهنگ را به سمت موقعیت شما کشانده و باعث شکار تیمتان می‌شود!\n\n"
-        "💡 در طول بازی نیمه‌شب در حیاط، این تصویر را باز نگه دارید و بدون هیچ صدای اضافه‌ای حرکت کنید."
+        "🔴 **فانوس سرخ دیجیتال — وسیله‌ی نمایشی اختیاری** 🕯\n\n"
+        "این تصویر جایگزین روشنایی واقعی نیست. مسیرهای عبور، پله‌ها، اطراف استخر و خروجی‌ها باید روشن بمانند. "
+        "برای حرکت ایمن از چراغ‌قوه یا نور گوشی استفاده کنید؛ هیچ نور سفیدی موجب جریمه یا حذف از بازی نمی‌شود."
     )
     kb = keyboards.midnight_action_kb()
     if LANTERN_PHOTO_FILE_ID:
@@ -720,11 +702,9 @@ async def cb_dl_lantern(callback: CallbackQuery):
     """Re-sends the red lantern photo for full-screen display."""
     await callback.answer("فانوس سرخ دیجیتال")
     caption = (
-        "🔴 **[فانوس سرخ دیجیتال — تنها نور مجاز در عمارت]** 🕯\n\n"
-        "📱 تصویر را لمس کنید و به صورت **تمام‌صفحه (Full-Screen)** روی گوشی باز نگه دارید.\n\n"
-        "⚠️ **تنها نوری که سرهنگ به آن حساس نیست همین است!**\n"
-        "سرهنگ به نور سرخ تاریک‌خانه الفت داشته و به آن کاملاً نابیناست؛ "
-        "روشن کردن هرگونه چراغ سفید یا صفحه عادی گوشی = شکار فوری توسط روح سرهنگ!"
+        "🔴 **فانوس سرخ دیجیتال — وسیله‌ی نمایشی اختیاری** 🕯\n\n"
+        "این تصویر فقط برای فضاسازی است و جایگزین نور واقعی نیست. مسیرها، پله‌ها، اطراف استخر و خروجی‌ها روشن می‌مانند. "
+        "در صورت نیاز برای ایمنی از نور گوشی یا چراغ‌قوه استفاده کنید؛ هیچ جریمه‌ای برای نور سفید وجود ندارد."
     )
     kb = keyboards.midnight_action_kb()
     if LANTERN_PHOTO_FILE_ID:
@@ -748,14 +728,19 @@ async def cb_chk_team(callback: CallbackQuery):
         await callback.message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
         return
 
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        await callback.message.answer("⏳ اطلاعات تیم پس از آغاز مرحله‌ی تحقیقات نیمه‌شب نمایش داده می‌شود.")
+        return
+
     team_num = guest.get("team_number")
-    if not team_num and is_tester(message.from_user.id, message.from_user.username):
-        await database.assign_tester_team(message.from_user.id, 1)
-        guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    if not team_num and is_tester(callback.from_user.id, callback.from_user.username):
+        await database.assign_tester_team(callback.from_user.id, 1)
+        guest = await database.get_guest_by_telegram_id(callback.from_user.id)
         team_num = 1
 
     if not team_num:
-        await callback.message.answer("⏳ تیم‌بندی شما در ساعت ۲۴:۰۰ اعلام خواهد شد.")
+        await callback.message.answer("⏳ شما عضو یکی از سه تیم تحقیقاتی نیستید.")
         return
 
     teammates = await database.get_team_members(team_num)
@@ -789,11 +774,11 @@ async def cb_help_solve(callback: CallbackQuery):
     await callback.answer("راهنمای حل معما")
     msg = (
         "🧩 **راهنمای ثبت پاسخ معماها در حیاط:**\n\n"
-        "۱. روی درختان باغ به دنبال پاکت‌های چسبانده‌شده‌ی تیم خود بگردید.\n"
+        "۱. دو پاکت کاغذی تیم خود را فقط در مسیرهای روشن و امن پیدا کنید.\n"
         "۲. پس از خواندن شعر معما و مشورت با هم‌تیمی‌ها، جواب را با این فرمت بنویسید:\n"
         "`/solve <پاسخ شما>`\n\n"
         "📌 **مثال:** `/solve خون` یا `/solve ۱۳۵۶`\n\n"
-        "⚠️ **هشدار مرگبار:** اگر جواب اشتباه ارسال کنید، صدای شکستن شاخه‌ها پخش می‌شود و سرهنگ بلافاصله به سمت تیم شما هجوم می‌آورد!"
+        "✅ پاسخ اشتباه فقط رد می‌شود؛ هیچ تله‌ی فیزیکی یا حمله‌ای در کار نیست. اگر مسیر ناایمن است، توقف کنید و از میزبان کمک بخواهید."
     )
     await callback.message.answer(msg, reply_markup=keyboards.midnight_action_kb())
 
@@ -839,7 +824,7 @@ async def cmd_carpool(message: Message):
         f"👤 **وضعیت شما:** {car_type}\n"
         f"📍 **زمان حرکت:** پنجشنبه ۲۹ اکتبر — رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n"
         f"🗺 **لوکیشن محل تجمع ساعت ۱۸:۰۰ (گوگل‌مپ):**\nhttps://maps.app.goo.gl/U6Dz6SzEUdoTnNty7\n\n"
-        f"⛔️ **یادآوری مهم:** دروازه‌ی عمارت از ساعت ۱۸:۴۵ تا ۲۴:۰۰ قفل خواهد بود و خروج زودهنگام امکان‌پذیر نیست."
+        f"✅ زمان حرکت برای هماهنگی است؛ خروج زودتر یا خروج اضطراری همیشه مجاز است. برای کمک، با میزبان یا مسئول حاضر تماس بگیرید."
     )
 
 @router.message(Command("graveyard"))

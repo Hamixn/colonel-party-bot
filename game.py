@@ -66,19 +66,6 @@ TEAM_RIDDLES = {
             "answers": ["5", "پنج", "۵"]
         }
     },
-    4: {
-        "name": "تیم ۴ (آینه)",
-        "riddle_1": {
-            "title": "معمای اول: بازتاب حقیقت",
-            "text": "حقیقت را بی‌پرده نشان می‌دهم اما زبانی برای سخن ندارم. رو در روی تو می‌ایستم و تصویرت را بازمی‌تابانم. من چیستم؟",
-            "answers": ["آینه", "mirror", "اینه", "آيينه"]
-        },
-        "riddle_2": {
-            "title": "معمای دوم: ساعت رهایی",
-            "text": "ساعتی از نیمه‌شب که درهای عمارت دوباره باز می‌شود و زنگ خاموشی نواخته می‌شود؟",
-            "answers": ["12", "۱۲", "2400", "۲۴۰۰", "24", "۲۴", "1230", "12:30", "۰۰۳۰", "0030"]
-        }
-    }
 }
 
 # Clue response texts for each team riddle (Section 3 Canonical Non-Leaking Clues)
@@ -111,28 +98,28 @@ CHARACTER_ROLE_CARDS = {
         "شما در شب ۲۹ اکتبر ۱۳۵۶ شاهد درگیری و هل داده شدن آرش در کنار استخر بودید. نادر وثوق شما را به مرگ تهدید کرد و شما از ترس سکوت کردید و شبانه از باغ گریختید.\n\n"
         "• در ابتدای بازی این راز را پیش خود نگه دارید.\n"
         "• اطلاعات چشم‌دید مستقیم خود را تنها در فاز تجمیع مدارک روی میز مرکزی برملا کنید.\n"
-        "• شما دارای ۲ عدد استیکر نشان‌دار هستید تا در طول مهمانی مخفیانه روی بج سینه بازرسان فعال بچسبانید."
+        "• دقیقاً ۲ استیکر دارید. فقط بازرسان فعال را هدف بگیرید؛ بلوندهای بی‌گناه و مهمانان آزاد هدف نیستند. یک نفر را دوبار هدف نگیرید. استیکر را فقط روی پارچه و بدون گرفتن یا لمس بدن مهمان قرار دهید؛ اگر کسی مخالفت کرد، منصرف شوید."
     ),
     "keyvan": (
         "📸 **[نقش محرمانه شما در پرونده: کیوان رستگار — عکاس مهمانی]**\n\n"
         "شما عکاس آن شب بودید و رأس ساعت ۲۲:۱۹ عکسی ثبت کردید که در انعکاس شیشه پنجره، سایه مبهم فردی ثبت شده است. از ترس متهم شدن، نگاتیو عکس را پنهان کردید.\n\n"
         "• زمان دقیق ۲۲:۱۹ را هنگامی که مدرک زمان عکس تیمتان رمزگشایی شد توضیح دهید.\n"
         "• ادعا نکنید که عکس به تنهایی هویت فرد را ثابت می‌کند (فقط حضور و تناقض زمانی را نشان می‌دهد).\n"
-        "• شما دارای ۲ عدد استیکر نشان‌دار هستید تا در طول مهمانی مخفیانه روی بج سینه بازرسان فعال بچسبانید."
+        "• دقیقاً ۲ استیکر دارید. فقط بازرسان فعال را هدف بگیرید؛ بلوندهای بی‌گناه و مهمانان آزاد هدف نیستند. یک نفر را دوبار هدف نگیرید. استیکر را فقط روی پارچه و بدون گرفتن یا لمس بدن مهمان قرار دهید؛ اگر کسی مخالفت کرد، منصرف شوید."
     ),
     "fereydoun": (
         "🩺 **[نقش محرمانه شما در پرونده: دکتر فریدون مهر — پزشک حاضر در مهمانی]**\n\n"
         "شما آثار جراحت سر آرش و خون لبه استخر را بررسی کردید، اما صحنه هل دادن را ندیدید. به دلیل ترس از پیامدهای اقدامات خود در آن شب، اطلاعات پزشکی را مخفی کردید.\n\n"
         "• هرگز ادعا نکنید که شخصاً هل داده شدن آرش توسط نادر را دیده‌اید؛ فقط آسیب جسمانی پیش از غرق شدن را تایید کنید.\n"
-        "• شما دارای ۲ عدد استیکر نشان‌دار هستید تا در طول مهمانی مخفیانه روی بج سینه بازرسان فعال بچسبانید."
+        "• دقیقاً ۲ استیکر دارید. فقط بازرسان فعال را هدف بگیرید؛ بلوندهای بی‌گناه و مهمانان آزاد هدف نیستند. یک نفر را دوبار هدف نگیرید. استیکر را فقط روی پارچه و بدون گرفتن یا لمس بدن مهمان قرار دهید؛ اگر کسی مخالفت کرد، منصرف شوید."
     ),
     "nader": (
         "🎭 **[نقش فوق‌محرمانه شما: نادر وثوق — تنها مقصر اصلی پرونده]**\n\n"
         "شما تنها عامل واقعی حادثه سال ۱۳۵۶ هستید. هنگام سرقت برگه‌ای از دفتر حساب‌ها، آرش متوجه دزدی شد و در کشمکش کنار استخر ضربه دید و به آب افتاد.\n\n"
         "• در طول مهمانی و بررسی‌های اولیه کاملاً عادی رفتار کنید و شک منطقی روی مدارک مبهم ایجاد نمایید.\n"
         "• شما به هیچ عنوان حق سرقت، تخریب یا پنهان کردن وسایل فیزیکی بازی را ندارید.\n"
-        "• در لحظه هماهنگ‌شده با میزبان، از حواس‌پرتی جمع استفاده کرده و با کلید مربوطه وارد اتاق تاریکخانه شوید.\n"
-        "• در صحنه فینال، برای برداشتن ماکت مدرک مشخص‌شده تلاش کنید (هرگز به تجهیزات واقعی جشن دست نزنید)."
+        "• در لحظه‌ای که میزبان اعلام می‌کند، طبق مسیر تمرین‌شده وارد صحنه شوید. هیچ کلید، قفل یا درِ قفل‌شده‌ای در بازی وجود ندارد.\n"
+        "• در پایان فقط برگه‌ی چاپیِ مدرک نهایی را بردارید؛ به مهمانان، لباس‌ها یا تجهیزات واقعی دست نزنید."
     )
 }
 
@@ -152,7 +139,7 @@ COLONEL_CASSETTE_TRANSCRIPT = (
     "امشب... شبِ بیست و نهمِ اکتبره. مهمان‌ها توی سالن دارن می‌رقصن. همه‌چیز عادی به نظر می‌رسه، "
     "اما من دیدمشون... کنار استخر... همون‌جا که پسرم غرق شد. سه نفرشون... اون‌ها دیگه مهمان‌های من نیستن. "
     "توی تاریک‌خانه‌ی عکاسیِ عمارت زیر نور قرمز لامپ تاریک‌خانه کار می‌کردم که اون اتفاق افتاد... "
-    "اگر این نوار رو سال‌ها بعد پیدا کردید... تنها راه کشف حقیقت، تطبیق برگه‌های اسناد و گزارش حساب‌هاست با گفتن سه کلمه رمز: "
+    "اگر این نوار رو سال‌ها بعد پیدا کردید... تنها راه کشف حقیقت، تطبیق برگه‌های اسناد و گزارش حساب‌هاست؛ سه کلمه‌ی پرونده این‌هاست: "
     "خون... سایه... و... *(صدای کوبیده شدن ناگهانی در و قطع نوار)*»"
 )
 
@@ -188,6 +175,7 @@ def normalize_mystery_text(text: str) -> str:
     t = t.replace("\u200c", " ").replace("...", "").replace("!", "").replace("؟", "").replace("?", "").replace(":", "")
     return " ".join(t.split())
 
+
 def evaluate_structured_accusation(
     team_number: int,
     suspect_name: str,
@@ -195,98 +183,111 @@ def evaluate_structured_accusation(
     evidence_point_1: str,
     evidence_point_2: str
 ) -> dict:
-    """
-    Evaluates a team's structured accusation.
-    Requirements:
-    1. Suspect name must normalize to 'نادر وثوق' or 'Nader Vosough'.
-    2. Motive/opportunity and evidence points must match at least 2 distinct valid evidence points
-       from the specific team's dossier:
-       - Team 1: Pool blood/head injury (ضربه سر / استخر / خون), Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی).
-       - Team 2: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹), Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی).
-       - Team 3: Witness statements (شیرین / کیوان / دکتر مهر / شهادت), Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر).
-    Returns {"is_correct": bool, "matched_points": list, "feedback": str}.
-    """
-    norm_suspect = normalize_mystery_text(suspect_name)
+    """Validate two independent evidence fields from this team's own dossier."""
+    suspect = normalize_mystery_text(suspect_name or "")
+    for punctuation in ('«', '»', '"', "'", "(", ")", "[", "]", "{", "}", ",", ".", "،", ";", "؛"):
+        suspect = suspect.replace(punctuation, "")
+    suspect = " ".join(suspect.split())
+    for prefix in ("آقای محترم ", "جناب آقای ", "آقای ", "متهم اصلی ", "مظنون اصلی ", "اقای "):
+        if suspect.startswith(prefix):
+            suspect = suspect[len(prefix):].strip()
+            break
 
-    # Suspect validation: must normalize to Nader Vosough and NOT any other suspect
-    other_suspects = [
-        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر", "فریدون مهر",
-        "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند", "بهرام فرهمند", "سرهنگ", "آرش",
-        "shirin", "keyvan", "fereydoun", "bahram", "arash"
-    ]
-    is_other = any(o in norm_suspect for o in other_suspects)
-    nader_aliases = ["نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough"]
-    is_suspect_correct = (not is_other) and any(alias in norm_suspect for alias in nader_aliases)
+    aliases = ("نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough")
+    other_suspects = (
+        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر",
+        "فریدون مهر", "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند", "بهرام فرهمند",
+        "سرهنگ", "آرش", "shirin", "keyvan", "fereydoun", "bahram", "arash"
+    )
+    is_other = any(name in suspect for name in other_suspects)
+    is_nader = (not is_other) and any(
+        suspect == alias or suspect.startswith(alias + " ")
+        for alias in aliases
+    )
 
-    norm_evidence = normalize_mystery_text(f"{motive_opportunity} {evidence_point_1} {evidence_point_2}")
+    ev1 = normalize_mystery_text(evidence_point_1 or "")
+    ev2 = normalize_mystery_text(evidence_point_2 or "")
+    distinct_fields = bool(ev1 and ev2 and ev1 != ev2)
 
+    categories = {
+        1: {
+            "a": (
+                "خون", "لبه استخر", "استخر", "جراحت سر", "ضربه سر", "آسیب سر",
+                "آسيب سر", "پیش از ورود به آب", "خونریزی", "blood sample", "head injury",
+                "pool blood", "pool"
+            ),
+            "b": (
+                "اختلاس", "حساب 84102", "دفتر مالی", "دفتر حساب", "دفترچه حساب",
+                "انتقال مالی", "کسری بودجه", "رسید r-17", "کد nv-17", "ledger",
+                "embezzlement", "account 84102", "accounting ledger", "bank transfer"
+            ),
+        },
+        2: {
+            "a": (
+                "انعکاس", "بازتاب", "سایه", "پنجره", "شیشه", "عکس", "تصویر",
+                "2219", "reflection", "window", "shadow", "photo", "silhouette"
+            ),
+            "b": (
+                "تناقض زمانی", "ادعای خروج", "خروج قبل از 22", "ترک باغ",
+                "خروج پس از 22", "زمان خروج", "حضور پس از ساعت 22", "timeline",
+                "contradiction", "departure", "exit before 22"
+            ),
+        },
+        3: {
+            "a": (
+                "شهادت", "شاهد", "شیرین", "کیوان", "دکتر فریدون", "دکتر مهر",
+                "تهدید", "هل دادن", "درگیری", "کتمان", "witness", "testimony", "threat"
+            ),
+            "b": (
+                "فهرست بایگانی", "فهرست 5 نفر", "5 نفر", "پنج نفر", "بایگانی",
+                "فهرست", "آرشیو", "archive index", "archive", "index", "five suspects",
+                "suspects list"
+            ),
+        },
+    }
+
+    def has_keyword(text: str, keywords: tuple[str, ...]) -> bool:
+        return bool(text) and any(
+            normalize_mystery_text(keyword) in text
+            for keyword in keywords
+            if normalize_mystery_text(keyword)
+        )
+
+    team_categories = categories.get(team_number)
     matched_points = []
+    category_1 = category_2 = None
+    if distinct_fields and team_categories:
+        a1 = has_keyword(ev1, team_categories["a"])
+        b1 = has_keyword(ev1, team_categories["b"])
+        a2 = has_keyword(ev2, team_categories["a"])
+        b2 = has_keyword(ev2, team_categories["b"])
 
-    if team_number == 1:
-        # Point 1: Pool blood / head injury (ضربه سر / استخر / خون)
-        p1_kw = [
-            "ضربه سر", "استخر", "خون", "جراحت سر", "ضربه", "سر", "خونریزی",
-            "کالبدشکافی", "پیش از ورود به اب", "پیش از ورود به آب", "زخمی",
-            "blood", "head", "injury", "pool", "trauma"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("ضربه سر و آثار خون پیش از غرق شدن در استخر")
+        # A single field cannot satisfy both rubrics; ambiguous/poisoned text
+        # is rejected rather than counted as two independent pieces of evidence.
+        category_1 = "a" if a1 and not b1 else "b" if b1 and not a1 else None
+        category_2 = "a" if a2 and not b2 else "b" if b2 and not a2 else None
 
-        # Point 2: Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی)
-        p2_kw = [
-            "اختلاس", "حساب", "دفتر مالی", "دفترچه", "84102", "1356",
-            "انتقال مالی", "سرقت مالی", "کسری", "مالی", "تراکنش", "دفتر حساب",
-            "ledger", "embezzlement", "account"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("انگیزه مالی و اختلاس در حساب شماره ۸۴۱۰۲ سال ۱۳۵۶")
+        point_labels = {
+            1: {"a": "ضربه سر و آثار خون پیش از غرق‌شدن", "b": "ثبت مالی و اختلاس"},
+            2: {"a": "عکس و بازتاب پنجره در ساعت ۲۲:۱۹", "b": "تناقض زمانی و ادعای خروج"},
+            3: {"a": "شهادت شاهدان و تهدید", "b": "فهرست بایگانی پنج‌نفره"},
+        }
+        if category_1:
+            matched_points.append(point_labels[team_number][category_1])
+        if category_2 and category_2 != category_1:
+            matched_points.append(point_labels[team_number][category_2])
 
-    elif team_number == 2:
-        # Point 1: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹)
-        p1_kw = [
-            "انعکاس", "سایه", "2219", "22:19", "پنجره", "شیشه", "عکس",
-            "تصویر", "قامت", "بازتاب", "silhouette", "reflection", "window", "shadow", "photo"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("انعکاس سایه در شیشه پنجره در عکس ساعت ۲۲:۱۹")
-
-        # Point 2: Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی)
-        p2_kw = [
-            "خروج پس از 22", "خروج پس از ۲۲", "تناقض زمانی", "تناقض", "خروج",
-            "ترک باغ", "ساعت 22", "ادعا", "زمان خروج", "حضور پس از ساعت 22",
-            "timeline", "contradiction", "departure"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("تناقض زمانی و رد ادعای خروج قبل از ساعت ۲۲:۰۰")
-
-    elif team_number == 3:
-        # Point 1: Witness statements (شیرین / کیوان / دکتر مهر / شهادت)
-        p1_kw = [
-            "شیرین", "کیوان", "دکتر مهر", "فریدون مهر", "شهادت", "شاهد",
-            "شاهدان", "کتمان", "تهدید", "درگیری", "نزاع", "سکوت",
-            "witness", "testimony", "threat"
-        ]
-        if any(kw in norm_evidence for kw in p1_kw):
-            matched_points.append("شهادت شاهدان عینی صحنه و کتمان حقیقت تحت تهدید")
-
-        # Point 2: Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر)
-        p2_kw = [
-            "فهرست بایگانی", "5 نفر", "پنج نفر", "بایگانی", "فهرست", "5",
-            "پنج", "ارشیو", "آرشیو", "دفترچه", "تطبیق",
-            "archive", "five", "suspects", "index"
-        ]
-        if any(kw in norm_evidence for kw in p2_kw):
-            matched_points.append("بررسی فهرست بایگانی ۵ مظنون و انزوای نادر وثوق")
-
-    is_correct = bool(is_suspect_correct and len(matched_points) >= 2)
-
-    if is_correct:
-        feedback = "✅ اتهام کامل و مستند است. هویت نادر وثوق به عنوان عامل اصلی با حداقل دو مدرک معتبر از پرونده تایید می‌شود."
-    else:
-        feedback = "❌ اتهام واردشده فاقد مدارک کافی یا انطباق کامل با اسناد این پرونده است."
-
+    is_correct = bool(
+        is_nader and distinct_fields and category_1 and category_2 and category_1 != category_2
+    )
     return {
         "is_correct": is_correct,
+        "is_suspect_correct": is_nader,
         "matched_points": matched_points,
-        "feedback": feedback
+        "feedback": (
+            "✅ اتهام کامل و مستند است."
+            if is_correct
+            else "❌ نام مظنون و دو مدرک متمایز از دو دسته‌ی مرتبط را بررسی کنید."
+        ),
     }
+

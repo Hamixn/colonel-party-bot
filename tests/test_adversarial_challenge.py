@@ -82,6 +82,8 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.unique_id = uuid.uuid4().hex[:10]
         self.test_db_file = Path(f"test_adv_{self.unique_id}_{self._testMethodName}.db")
         self.orig_db_path = database.DB_PATH
+        self.orig_admin_id = config.ADMIN_USER_ID
+        config.ADMIN_USER_ID = 999000111
         database.DB_PATH = self.test_db_file
         database._riddle_lock = asyncio.Lock()
 
@@ -101,9 +103,11 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
                 (299, 'unregistered_stranger', 'غریبه ناشناس', NULL, NULL, NULL)
             """)
             await db.commit()
+        await database.set_game_state("game_phase", "midnight_investigation")
 
     async def asyncTearDown(self):
         database.DB_PATH = self.orig_db_path
+        config.ADMIN_USER_ID = self.orig_admin_id
         await asyncio.sleep(0.01)
         if self.test_db_file.exists():
             for _ in range(5):
@@ -118,6 +122,7 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
     # -------------------------------------------------------------------------
     async def test_rescue_unstarted_mode(self):
         """Verify /rescue functions when game is unstarted (no game_phase set)."""
+        await database.set_game_state("game_phase", "registration")
         bot = make_mock_bot()
         msg = make_mock_message(201, "/rescue")
         await handlers.game.cmd_rescue(msg, bot)
@@ -234,6 +239,8 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
     # -------------------------------------------------------------------------
     async def test_accuse_multiline_persian_with_punctuation(self):
         """Verify /accuse parses multi-line Persian text with colons, newlines, and Arabic letters."""
+        await database.set_game_state("team_1_riddle_1", "1")
+        await database.set_game_state("team_1_riddle_2", "1")
         bot = make_mock_bot()
 
         # Submission with Arabic 'ي', 'ك', 'ة', newlines, colons, and punctuation
@@ -262,6 +269,9 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_accuse_pipe_and_dash_delimiters(self):
         """Verify /accuse single-line submission using pipe '|' and dash ' - ' delimiters."""
+        for team_num in (2, 3):
+            await database.set_game_state(f"team_{team_num}_riddle_1", "1")
+            await database.set_game_state(f"team_{team_num}_riddle_2", "1")
         bot = make_mock_bot()
 
         # Team 2 single-line pipe submission

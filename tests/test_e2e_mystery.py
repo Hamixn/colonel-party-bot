@@ -97,6 +97,7 @@ class BaseE2ETestCase(unittest.IsolatedAsyncioTestCase):
                 (302, 'blonde_2', 'بلوند دوم', 'role_blonde', NULL, NULL)
             """)
             await db.commit()
+        await database.set_game_state("game_phase", "midnight_investigation")
 
     async def asyncTearDown(self):
         config.ADMIN_USER_ID = self.orig_admin_id
@@ -214,6 +215,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_valid_submission_returns_neutral_response(self):
         """Valid accusation naming Nader Vosough returns a neutral confirmation without disclosing win."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_1_riddle_{n}", "1")
         bot = make_mock_bot()
         msg = make_mock_message(
             101,
@@ -240,6 +243,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_non_winning_submission_returns_identical_neutral_response(self):
         """Non-winning accusation (e.g. naming wrong suspect) receives the same neutral confirmation."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_2_riddle_{n}", "1")
         bot = make_mock_bot()
         msg = make_mock_message(
             102,
@@ -260,6 +265,8 @@ class TestE2EAccuseFlow(BaseE2ETestCase):
 
     async def test_accuse_revision_lifecycle(self):
         """Accusations can be revised freely until deductions are closed."""
+        for n in (1, 2):
+            await database.set_game_state(f"team_1_riddle_{n}", "1")
         bot = make_mock_bot()
         # Initial submission
         msg1 = make_mock_message(101, "/accuse نادر وثوق")
@@ -482,7 +489,7 @@ class TestE2ECrossFeatureCombinations(BaseE2ETestCase):
         # 4. Revise accusation with both evidence points -> WINS!
         m_acc2 = make_mock_message(
             101,
-            "/accuse نادر وثوق\nجراحت سر و خون استخر\nاختلاس حساب ۸۴۱۰۲ در دفترچه مالی سال ۵۶"
+            "/accuse نادر وثوق\nانگیزه: پنهان‌کردن اختلاس\nجراحت سر و خون استخر\nاختلاس حساب ۸۴۱۰۲ در دفترچه مالی سال ۵۶"
         )
         await handlers.game.cmd_accuse(m_acc2, bot)
 
@@ -491,17 +498,17 @@ class TestE2ECrossFeatureCombinations(BaseE2ETestCase):
         self.assertEqual(winner["team_number"], 1)
 
     async def test_pairwise_accuse_before_solve(self):
-        """A team can accuse before solving riddles; if fully supported, it wins immediately."""
+        """A complete-looking accusation is rejected until both envelopes are solved."""
         bot = make_mock_bot()
         m_acc = make_mock_message(
             102,
-            "/accuse نادر وثوق\nعکس بازتاب پنجره ساعت 22:19\nتناقض با ادعای خروج قبل از ۲۲:۰۰"
+            "/accuse نادر وثوق\nانگیزه: انکار حضور\nعکس بازتاب پنجره ساعت 22:19\nتناقض با ادعای خروج قبل از ۲۲:۰۰"
         )
         await handlers.game.cmd_accuse(m_acc, bot)
 
         winner = await database.get_winning_accusation()
-        self.assertIsNotNone(winner)
-        self.assertEqual(winner["team_number"], 2)
+        self.assertIsNone(winner)
+        self.assertIn("ابتدا هر دو پاکت", m_acc.answers[0])
 
     async def test_pairwise_solve_and_rescue(self):
         """Team actively solving riddles calls emergency rescue; rescue logs without impacting solve state."""
@@ -570,7 +577,7 @@ class TestE2ERealWorldScenarios(BaseE2ETestCase):
         # Step 2: Team 2 submits winning accusation
         msg_t2_acc = make_mock_message(
             102,
-            "/accuse نادر وثوق\nعکس بازتاب پنجره در ساعت 22:19\nتناقض زمانی با ادعای خروج قبل از ۲۲:۰۰"
+            "/accuse نادر وثوق\nانگیزه: انکار حضور هنگام حادثه\nعکس بازتاب پنجره در ساعت 22:19\nتناقض زمانی با ادعای خروج قبل از ۲۲:۰۰"
         )
         await handlers.game.cmd_accuse(msg_t2_acc, bot)
 
@@ -583,7 +590,7 @@ class TestE2ERealWorldScenarios(BaseE2ETestCase):
         await handlers.game.cmd_solve(make_mock_message(111, "/solve 1356"), bot)
         msg_t1_acc = make_mock_message(
             101,
-            "/accuse نادر وثوق\nجراحت سر و خون لبه استخر\nاختلاس حساب 84102 دفترچه مالی"
+            "/accuse نادر وثوق\nانگیزه: پنهان‌کردن اختلاس\nجراحت سر و خون لبه استخر\nاختلاس حساب 84102 دفترچه مالی"
         )
         await handlers.game.cmd_accuse(msg_t1_acc, bot)
 
@@ -624,11 +631,11 @@ class TestE2ERealWorldScenarios(BaseE2ETestCase):
 
     async def test_scenario_3_premature_accusation_followed_by_complete_revision(self):
         """
-        Scenario 3: Premature/insufficient accusation rejected, followed by complete revision winning.
-        Team 3 first names Shirin Nouri (wrong suspect).
-        Team 3 names Nader but with no evidence points.
-        Team 3 provides witness statements + 5-person archive check -> Wins!
+        Scenario 3: Partial / wrong accusations remain neutral; a complete revision can win.
+        Team 3 names Shirin, then Nader without evidence, and finally provides two dossier points.
         """
+        for n in (1, 2):
+            await database.set_game_state(f"team_3_riddle_{n}", "1")
         bot = make_mock_bot()
 
         # 1. Wrong suspect
@@ -644,7 +651,7 @@ class TestE2ERealWorldScenarios(BaseE2ETestCase):
         # 3. Complete revision
         msg3 = make_mock_message(
             103,
-            "/accuse نادر وثوق\nشهادت شاهدان مبنی بر تهدید و سکوت\nتطبیق فهرست بایگانی ۵ نفر مظنون"
+            "/accuse نادر وثوق\nانگیزه: تهدید برای کتمان حادثه\nشهادت شاهدان مبنی بر تهدید و سکوت\nتطبیق فهرست بایگانی ۵ نفر مظنون"
         )
         await handlers.game.cmd_accuse(msg3, bot)
 
