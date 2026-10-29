@@ -5,8 +5,8 @@ from typing import List, Dict, Any, Optional
 GUEST_ROSTER = [
     {
         "id": 1,
-        "name": "لیلا",
-        "aliases": ["leila", "leyla", "layla", "leili"],
+        "name": "سارا (Sara)",
+        "aliases": ["sara", "sarah", "سارا", "ساره"],
         "car_group": 1,
         "is_driver": True
     },
@@ -27,7 +27,7 @@ GUEST_ROSTER = [
     {
         "id": 4,
         "name": "رویا (Roya)",
-        "aliases": ["roya", "roia", "roya"],
+        "aliases": ["roya", "roia", "رويا"],
         "car_group": 2,
         "is_driver": False
     },
@@ -75,8 +75,8 @@ GUEST_ROSTER = [
     },
     {
         "id": 11,
-        "name": "محا (Moha)",
-        "aliases": ["moha", "maha", "mohaa"],
+        "name": "محا یا محدثه (Moha)",
+        "aliases": ["moha", "maha", "mohaddeseh", "mohadese", "محدثه", "محا"],
         "car_group": 6,
         "is_driver": False
     },
@@ -131,256 +131,93 @@ GUEST_ROSTER = [
     },
     {
         "id": 19,
-        "name": "همراه خاطره",
-        "aliases": [
-            "hamrah khatereh", "hamrahe khatereh", "hamrah khatere",
-            "khatereh hamrah", "دوست پسر خاطره", "پارتنر خاطره", "همراه خاطره"
-        ],
+        "name": "رها (Raha)",
+        "aliases": ["raha", "rahaa", "رها"],
         "car_group": 1,
         "is_driver": False
     },
     {
         "id": 20,
-        "name": "خاطره",
-        "aliases": ["khatereh", "khatere", "xatereh"],
+        "name": "خشایار (Khashayar)",
+        "aliases": ["khashayar", "xashayar", "khashayar", "خشایار"],
         "car_group": 1,
         "is_driver": False
     },
     {
         "id": 21,
-        "name": "بهنود (behnoud)",
+        "name": "بهنود (Behnoud)",
         "aliases": ["behnoud", "behnood", "behnud"],
         "car_group": 4,
         "is_driver": False
     },
     {
         "id": 22,
-        "name": "همراه لیلا",
-        "aliases": [
-            "hamrah leila", "hamrahe leila", "hamrah leyla",
-            "leila hamrah", "دوست پسر لیلا", "پارتنر لیلا", "همراه لیلا"
-        ],
+        "name": "صدرا (Sadra)",
+        "aliases": ["sadra", "saadra", "sadraa", "صدرا"],
         "car_group": 1,
         "is_driver": False
     },
     {
         "id": 23,
-        "name": "روژان",
-        "aliases": ["rozhan", "rojan", "rojhan"],
-        "car_group": None,
+        "name": "حامد (Hamed)",
+        "aliases": ["hamed", "haamed", "hamixn", "hamixon", "حامد"],
+        "car_group": 0,
         "is_driver": False
     },
     {
         "id": 24,
-        "name": "سایه",
-        "aliases": ["sayeh", "saye", "saayeh"],
-        "car_group": None,
+        "name": "نصیر (Nasir)",
+        "aliases": ["nasir", "naseer", "nasser", "نصیر"],
+        "car_group": 1,
         "is_driver": False
     },
     {
         "id": 25,
-        "name": "کیانا",
-        "aliases": ["kiana", "kiyana"],
-        "car_group": None,
+        "name": "مریم (Maryam)",
+        "aliases": ["maryam", "mariam", "مریم"],
+        "car_group": 4,
         "is_driver": False
     },
     {
         "id": 26,
-        "name": "الناز",
-        "aliases": ["elnaz", "elnazz"],
-        "car_group": None,
+        "name": "مرجان (Marjan)",
+        "aliases": ["marjan", "marjaan", "مرجان"],
+        "car_group": 1,
         "is_driver": False
     },
     {
         "id": 27,
-        "name": "کیمیا",
-        "aliases": ["kimia", "kimiya", "kimya"],
-        "car_group": None,
+        "name": "حامد (۲)",
+        "aliases": ["hamed 2", "hamed2", "حامد ۲", "حامد 2", "حامد۲"],
+        "car_group": 0,
         "is_driver": False
     },
     {
         "id": 28,
-        "name": "یاسر",
-        "aliases": ["yaser", "yasser"],
+        "name": "میثم (Meysam)",
+        "aliases": ["meysam", "meisam", "maysam", "میثم"],
         "car_group": None,
         "is_driver": False
     },
     {
         "id": 29,
-        "name": "پوریا",
-        "aliases": ["pouria", "pooria", "poorya", "pourya"],
+        "name": "فرید (Farid)",
+        "aliases": ["farid", "fareed", "فرید"],
         "car_group": None,
         "is_driver": False
     },
     {
         "id": 30,
-        "name": "یگانه",
-        "aliases": ["yeganeh", "yegane"],
+        "name": "فرینا (Farina)",
+        "aliases": ["farina", "fareena", "faryna", "فرینا"],
         "car_group": None,
         "is_driver": False
     },
     {
         "id": 31,
-        "name": "علی",
-        "aliases": ["ali", "aly"],
+        "name": "نحله (Nahleh)",
+        "aliases": ["nahleh", "nahle", "nahla", "نحله"],
         "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 32,
-        "name": "محمدرضا",
-        "aliases": ["mohammadreza", "mohamadreza", "mohammad reza", "محمد رضا"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 33,
-        "name": "علیرضا",
-        "aliases": ["alireza", "ali reza", "علی رضا"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 34,
-        "name": "مصطفی",
-        "aliases": ["mostafa", "mostafaa", "mostapha"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 35,
-        "name": "ابلفضل",
-        "aliases": [
-            "abolfazl", "abolfadl", "abolfazel", "abolfazell",
-            "ابوالفضل", "ابولفضل", "ابلفضل"
-        ],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 36,
-        "name": "کسری",
-        "aliases": ["kasra", "kasraa", "kasri", "کسرا"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 37,
-        "name": "پرنیان",
-        "aliases": ["parnian", "parnyan", "parniyan"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 38,
-        "name": "ارین",
-        "aliases": ["arian", "arin", "aarian", "آرین"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 39,
-        "name": "امیرعلی",
-        "aliases": ["amirali", "amir ali", "امیر علی"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 40,
-        "name": "نازگل",
-        "aliases": ["nazgol", "naazgol"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 41,
-        "name": "کایل",
-        "aliases": ["kyle", "kayle", "kile"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 42,
-        "name": "امیربهادر",
-        "aliases": ["amirbahador", "amir bahador", "امیر بهادر"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 43,
-        "name": "کیمیا (۲)",
-        "aliases": ["kimia 2", "kimia۲", "kimiya 2", "کیمیا 2", "کیمیا ۲"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 44,
-        "name": "سوگل",
-        "aliases": ["sogol", "soogol", "sogand"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 45,
-        "name": "مصطفی (۲)",
-        "aliases": ["mostafa 2", "mostafa۲", "مصطفی 2", "مصطفی ۲"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 46,
-        "name": "هومن",
-        "aliases": ["hooman", "houman", "homan"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 47,
-        "name": "ارزو",
-        "aliases": ["arezoo", "arezu", "arzoo", "آرزو", "ارزو"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 48,
-        "name": "علی (۲)",
-        "aliases": ["ali 2", "ali۲", "علی 2", "علی ۲"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 49,
-        "name": "بردیا",
-        "aliases": ["bardia", "bardya", "bardiya"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 50,
-        "name": "بهناد",
-        "aliases": ["behnad", "behnaad"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 51,
-        "name": "مینا",
-        "aliases": ["mina", "meena"],
-        "car_group": None,
-        "is_driver": False
-    },
-    {
-        "id": 52,
-        "name": "فرید",
-        "aliases": ["farid", "fareed"],
-        "car_group": 4,
-        "is_driver": False
-    },
-    {
-        "id": 53,
-        "name": "حامد",
-        "aliases": ["hamed", "haamed"],
-        "car_group": 0,
         "is_driver": False
     },
 ]

@@ -981,10 +981,10 @@ async def get_carpool_manifest() -> Dict[int, Dict[str, Any]]:
     and dynamically registered guests, including driver Telegram contacts.
     """
     pre_drivers = {
-        1: "لیلا",
-        2: "عارف",
-        5: "فرهود",
-        6: "سیاوش"
+        1: "سارا (Sara)",
+        2: "عارف (Aref)",
+        5: "فرهود (Farhood)",
+        6: "سیاوش (Siavash)"
     }
 
     manifest: Dict[int, Dict[str, Any]] = {}
