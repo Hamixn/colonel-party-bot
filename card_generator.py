@@ -147,10 +147,10 @@ def generate_invitation_card(
     y = 405
 
     # 1. Main Titles
-    draw_centered_text(draw, "PROJECT BLACKOUT", y, font_header_en, silver, width, is_persian=False)
+    draw_centered_text(draw, "CASE FILE: 56/10/29", y, font_header_en, silver, width, is_persian=False)
     y += 58
 
-    draw_centered_text(draw, "مهمانی باغ سرهنگ", y, font_header_fa, gold, width, is_persian=True)
+    draw_centered_text(draw, "پرونده جنایی باغ سرهنگ", y, font_header_fa, gold, width, is_persian=True)
     y += 75
 
     # Divider
@@ -178,38 +178,38 @@ def generate_invitation_card(
 
     # 3. Role and Assignment Details
     if role == "role_player":
-        draw_centered_text(draw, "نقش: بازیکن طلسم", y, font_role, blood_red, width, is_persian=True)
+        draw_centered_text(draw, "نقش: بازرس پرونده (تیم جنایی)", y, font_role, blood_red, width, is_persian=True)
         y += 50
-        draw_centered_text(draw, "THE HUNTER'S PREY", y, font_subrole, (240, 90, 90), width, is_persian=False)
+        draw_centered_text(draw, "THE INVESTIGATOR — DETECTIVE TEAM", y, font_subrole, (240, 90, 90), width, is_persian=False)
         y += 48
-        draw_centered_text(draw, "⚠️ طومار و ماموریت مخفی: در ربات تلگرام (ساعت ۱۹:۳۰)", y, font_note, (255, 205, 205), width, is_persian=True)
+        draw_centered_text(draw, "🔍 آغاز سرنخ‌ها و ماموریت اجتماعی در ربات: ساعت ۱۹:۳۰", y, font_note, (255, 205, 205), width, is_persian=True)
         y += 40
-        draw_centered_text(draw, "ماموریت: بقا، کشف طلسم‌ها و نجات از دست ۳ تسخیرشده", y, font_note, dim_white, width, is_persian=True)
+        draw_centered_text(draw, "ماموریت: کشف حقیقت قتل سال ۱۳۵۶ و رمزگشایی مدارک", y, font_note, dim_white, width, is_persian=True)
     else:
-        draw_centered_text(draw, "نقش: بلوند بی‌گناه", y, font_role, blonde_pink, width, is_persian=True)
+        draw_centered_text(draw, "نقش: همراه مهمانی (بلوند بی‌گناه)", y, font_role, blonde_pink, width, is_persian=True)
         y += 50
-        draw_centered_text(draw, "INNOCENT BLONDE — SAFE ZONE VIP", y, font_subrole, gold, width, is_persian=False)
+        draw_centered_text(draw, "INNOCENT BLONDE — VIP SAFE ZONE", y, font_subrole, gold, width, is_persian=False)
         y += 48
-        draw_centered_text(draw, "🛡 دارای مصونیت مطلق از شکار و تاریکی باغ.", y, font_note, (255, 220, 235), width, is_persian=True)
+        draw_centered_text(draw, "🍸 مصونیت کامل، حضور در سالن گرم، موسیقی و بار", y, font_note, (255, 220, 235), width, is_persian=True)
         y += 40
-        draw_centered_text(draw, "پناهگاه سالن گرم: فیلم، نوشیدنی، موسیقی و تماشاچی بازی", y, font_note, dim_white, width, is_persian=True)
+        draw_centered_text(draw, "عدم درگیری در پرونده — آزادی کامل برای رقص و جشن", y, font_note, dim_white, width, is_persian=True)
 
     y += 55
 
-    # 4. Secret Soul PIN Code (Used for hunting & immunity verification)
+    # 4. Secret PIN Code
     pin_code = soul_pin or f"{(serial_number * 17 + 103) % 900 + 100}"
-    draw_centered_text(draw, f"کد روح شما: {pin_code}", y, font_pin, (255, 215, 0), width, is_persian=True)
+    draw_centered_text(draw, f"کد شناسایی اختصاصی: {pin_code}", y, font_pin, (255, 215, 0), width, is_persian=True)
     y += 48
 
     draw_divider(draw, y, width, crimson)
     y += 38
 
     # 5. Timeline Footer
-    draw_centered_text(draw, "۲۹ اکتبر | حرکت: ۱۸:۰۰ | ورود به عمارت: ۱۸:۴۵ | خاموشی: ۲۴:۰۰", y, font_timeline, silver, width, is_persian=True)
+    draw_centered_text(draw, "حرکت: ۱۸:۰۰ | ورود: ۱۸:۴۵ | شروع جشن: ۱۹:۳۰ | خاموشی: ۲۴:۰۰", y, font_timeline, silver, width, is_persian=True)
     y += 55
 
-    # 6. Unique Serial Code Badge (SOUL-#01)
-    serial_str = f"SOUL - #{serial_number:02d}"
+    # 6. Unique Serial Code Badge (DOSSIER - #01)
+    serial_str = f"DOSSIER - #{serial_number:02d}"
     badge_w = 300
     badge_h = 56
     bx = (width - badge_w) // 2
@@ -276,11 +276,11 @@ def generate_immunity_card(
     y = 180
 
     # Title English
-    draw_centered_text(draw, "IMMUNITY SHIELD ACTIVE", y, font_title_en, neon_green, width, is_persian=False)
+    draw_centered_text(draw, "SAFE ZONE PASS — IMMUNITY", y, font_title_en, neon_green, width, is_persian=False)
     y += 70
 
     # Title Persian
-    draw_centered_text(draw, "🛡 طلسم مصونیت فعال شد 🛡", y, font_title_fa, (255, 255, 255), width, is_persian=True)
+    draw_centered_text(draw, "🛡 کارت مصونیت و آزادی کامل 🛡", y, font_title_fa, (255, 255, 255), width, is_persian=True)
     y += 110
 
     draw_divider(draw, y, width, neon_green)
@@ -315,21 +315,21 @@ def generate_immunity_card(
     draw_centered_text(draw, guest_name.strip(), name_box_top + 25, font_name, (255, 255, 255), width, is_persian=True)
     y = name_box_top + name_box_height + 70
 
-    # Pin & Soul
-    draw_centered_text(draw, f"کد روح: {soul_pin}", y, font_pin, gold, width, is_persian=True)
+    # Pin
+    draw_centered_text(draw, f"کد شناسایی اختصاصی: {soul_pin}", y, font_pin, gold, width, is_persian=True)
     y += 90
 
     draw_divider(draw, y, width, neon_green)
     y += 80
 
     # Rules / Warning
-    draw_centered_text(draw, "⛔️ غیرقابل تسخیر تا پایان مهمانی ⛔️", y, font_body, (255, 90, 90), width, is_persian=True)
+    draw_centered_text(draw, "⛔️ همراه مهمانی — مصونیت کامل تا پایان شب ⛔️", y, font_body, (255, 90, 90), width, is_persian=True)
     y += 80
 
-    draw_centered_text(draw, "این صفحه را به صورت تمام‌صفحه به افراد تسخیرشده نشان دهید.", y, font_body, bright_text, width, is_persian=True)
+    draw_centered_text(draw, "این صفحه را در صورت لزوم به سایر مهمانان نشان دهید.", y, font_body, bright_text, width, is_persian=True)
     y += 65
 
-    draw_centered_text(draw, "هیچ تسخیرشده‌ای حق چسباندن استیکر به شما را ندارد!", y, font_body, neon_green, width, is_persian=True)
+    draw_centered_text(draw, "شما مهمان ویژه سالن جشن، موسیقی و بار اختصاصی هستید.", y, font_body, neon_green, width, is_persian=True)
     y += 100
 
     draw_divider(draw, y, width, emerald)
