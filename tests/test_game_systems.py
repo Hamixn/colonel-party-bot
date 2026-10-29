@@ -467,6 +467,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(draft["status"], "recorded")
         self.assertFalse(draft["is_valid"])
         self.assertIsNone(await database.get_game_winner())
+        draft_timestamp = draft["first_submitted_at"]
 
         first = await database.record_team_accusation(
             1, "نادر وثوق", 101,
@@ -476,6 +477,7 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(first["is_valid"])
         self.assertTrue(first["winner_created"])
+        self.assertEqual(first["first_submitted_at"], draft_timestamp)
         winner = await database.get_game_winner()
         self.assertEqual(winner["team_number"], 1)
         winning_time = winner["winning_at"]
@@ -491,6 +493,28 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         after = await database.get_game_winner()
         self.assertEqual(after["team_number"], 1)
         self.assertEqual(after["winning_at"], winning_time)
+
+    async def test_competing_valid_accusations_race_for_one_winner(self):
+        submissions = await asyncio.gather(
+            database.record_team_accusation(
+                1, "نادر وثوق", 101,
+                "نمونه B و جراحت سر آرش",
+                "رسید R-17 و اختلاس مالی",
+                "نادر برای پنهان‌کردن اختلاس خود در صحنه حضور داشت و از افشای آن می‌ترسید."
+            ),
+            database.record_team_accusation(
+                2, "نادر وثوق", 102,
+                "عکس ۲۲:۱۹ و انعکاس",
+                "کد NV-17 روی جلیقه‌ی زغالی",
+                "ادعای خروج قبل از ساعت بیست با عکس ۲۲:۱۹ تناقض دارد و حضور نادر را نشان می‌دهد."
+            ),
+        )
+        self.assertEqual(sum(1 for result in submissions if result["winner_created"]), 1)
+        winner = await database.get_game_winner()
+        self.assertIn(winner["team_number"], (1, 2))
+        async with aiosqlite.connect(self.test_db_file) as db:
+            async with db.execute("SELECT COUNT(*) FROM game_winner") as cursor:
+                self.assertEqual((await cursor.fetchone())[0], 1)
 
     async def test_team_specific_evidence_categories_are_required(self):
         invalid = await database.record_team_accusation(
