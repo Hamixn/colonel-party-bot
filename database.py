@@ -1050,7 +1050,9 @@ async def clean_all_guests() -> int:
         except Exception:
             pass
 
-        # Reset all game progression states
+        # Reset game progression, new competitive tables, and one-shot controls.
+        await db.execute("DELETE FROM team_accusations")
+        await db.execute("DELETE FROM game_winner")
         keys_to_clear = [
             'social_game_started',
             'midnight_game_started',
@@ -1065,10 +1067,16 @@ async def clean_all_guests() -> int:
             'team_3_accusation',
             'rescue_count',
             'rescue_alert_count',
-            'traitors_revealed'
+            'last_rescue_alert_at',
+            'last_rescue_alert_by',
+            'traitors_revealed',
+            'deductions_closed',
+            'finale_triggered_at',
+            'reveal_triggered_at'
         ]
         placeholders = ','.join(['?'] * len(keys_to_clear))
         await db.execute(f"DELETE FROM game_state WHERE key IN ({placeholders})", keys_to_clear)
+        await db.execute("DELETE FROM game_state WHERE key LIKE 'team_4_%'")
         await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'registration')")
 
         await db.commit()
