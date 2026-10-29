@@ -66,19 +66,6 @@ TEAM_RIDDLES = {
             "answers": ["5", "پنج", "۵"]
         }
     },
-    4: {
-        "name": "تیم ۴ (آینه)",
-        "riddle_1": {
-            "title": "معمای اول: بازتاب حقیقت",
-            "text": "حقیقت را بی‌پرده نشان می‌دهم اما زبانی برای سخن ندارم. رو در روی تو می‌ایستم و تصویرت را بازمی‌تابانم. من چیستم؟",
-            "answers": ["آینه", "mirror", "اینه", "آيينه"]
-        },
-        "riddle_2": {
-            "title": "معمای دوم: ساعت رهایی",
-            "text": "ساعتی از نیمه‌شب که درهای عمارت دوباره باز می‌شود و زنگ خاموشی نواخته می‌شود؟",
-            "answers": ["12", "۱۲", "2400", "۲۴۰۰", "24", "۲۴", "1230", "12:30", "۰۰۳۰", "0030"]
-        }
-    }
 }
 
 # Clue response texts for each team riddle (Section 3 Canonical Non-Leaking Clues)
@@ -188,7 +175,113 @@ def normalize_mystery_text(text: str) -> str:
     t = t.replace("\u200c", " ").replace("...", "").replace("!", "").replace("؟", "").replace("?", "").replace(":", "")
     return " ".join(t.split())
 
+
 def evaluate_structured_accusation(
+    team_number: int,
+    suspect_name: str,
+    motive_opportunity: str,
+    evidence_point_1: str,
+    evidence_point_2: str
+) -> dict:
+    """
+    Require two distinct evidence fields, each supporting a different canonical
+    category from the team's own dossier. Motive text cannot substitute for evidence.
+    """
+    suspect = normalize_mystery_text(suspect_name)
+    aliases = ("نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough")
+    other_suspects = (
+        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر",
+        "فریدون مهر", "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند",
+        "بهرام فرهمند", "سرهنگ", "آرش", "shirin", "keyvan", "fereydoun",
+        "bahram", "arash"
+    )
+    is_other = any(name in suspect for name in other_suspects)
+    is_nader = (not is_other) and any(
+        suspect == alias or suspect.startswith(alias + " ")
+        for alias in aliases
+    )
+
+    ev1 = normalize_mystery_text(evidence_point_1 or "")
+    ev2 = normalize_mystery_text(evidence_point_2 or "")
+    distinct_fields = bool(ev1 and ev2 and ev1 != ev2)
+
+    categories = {
+        1: {
+            "a": (
+                "خون", "لبه استخر", "استخر", "جراحت سر", "ضربه سر", "آسیب سر",
+                "آسيب سر", "پیش از ورود به آب", "خونریزی", "blood sample", "head injury"
+            ),
+            "b": (
+                "اختلاس", "حساب 84102", "دفتر مالی", "دفتر حساب", "دفترچه حساب",
+                "انتقال مالی", "کسری بودجه", "رسید r-17", "کد nv-17", "ledger",
+                "embezzlement", "account 84102"
+            ),
+        },
+        2: {
+            "a": (
+                "انعکاس", "بازتاب", "سایه", "پنجره", "شیشه", "عکس", "تصویر",
+                "2219", "reflection", "window", "shadow", "photo", "silhouette"
+            ),
+            "b": (
+                "تناقض زمانی", "ادعای خروج", "خروج قبل از 22", "ترک باغ",
+                "خروج پس از 22", "زمان خروج", "حضور پس از ساعت 22", "timeline",
+                "contradiction", "departure"
+            ),
+        },
+        3: {
+            "a": (
+                "شهادت", "شاهد", "شیرین", "کیوان", "دکتر فریدون", "دکتر مهر",
+                "تهدید", "هل دادن", "درگیری", "کتمان", "witness", "testimony", "threat"
+            ),
+            "b": (
+                "فهرست بایگانی", "فهرست 5 نفر", "5 نفر", "پنج نفر", "بایگانی",
+                "فهرست", "آرشیو", "archive index", "archive", "index", "five suspects"
+            ),
+        },
+    }
+
+    def has_keyword(text: str, keywords: tuple[str, ...]) -> bool:
+        return bool(text) and any(
+            normalize_mystery_text(keyword) in text
+            for keyword in keywords
+            if normalize_mystery_text(keyword)
+        )
+
+    team_categories = categories.get(team_number)
+    matched_points = []
+    if distinct_fields and team_categories:
+        p1_a = has_keyword(ev1, team_categories["a"])
+        p1_b = has_keyword(ev1, team_categories["b"])
+        p2_a = has_keyword(ev2, team_categories["a"])
+        p2_b = has_keyword(ev2, team_categories["b"])
+
+        # The two fields must independently support opposite categories. A
+        # single phrase containing both kinds of keyword cannot win by itself.
+        if p1_a and p2_b:
+            matched_points = [
+                "مدرک اول: " + ("یافته‌ی جسمانی" if team_number == 1 else "عکس و بازتاب" if team_number == 2 else "شهادت شاهدان"),
+                "مدرک دوم: " + ("ثبت مالی" if team_number == 1 else "تناقض زمانی" if team_number == 2 else "فهرست بایگانی"),
+            ]
+        elif p1_b and p2_a:
+            matched_points = [
+                "مدرک اول: " + ("ثبت مالی" if team_number == 1 else "تناقض زمانی" if team_number == 2 else "فهرست بایگانی"),
+                "مدرک دوم: " + ("یافته‌ی جسمانی" if team_number == 1 else "عکس و بازتاب" if team_number == 2 else "شهادت شاهدان"),
+            ]
+
+    is_correct = bool(is_nader and len(matched_points) == 2)
+    feedback = (
+        "✅ اتهام کامل و مستند است."
+        if is_correct
+        else "❌ نام مظنون و دو مدرک متمایز از دو دسته‌ی مرتبط را بررسی کنید."
+    )
+    return {
+        "is_correct": is_correct,
+        "is_suspect_correct": is_nader,
+        "matched_points": matched_points,
+        "feedback": feedback,
+    }
+
+
     team_number: int,
     suspect_name: str,
     motive_opportunity: str,
