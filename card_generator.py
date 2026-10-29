@@ -24,12 +24,21 @@ def reshape_persian(text: str) -> str:
     return get_display(reshaped_text)
 
 def get_font(font_path: Path, size: int) -> ImageFont.FreeTypeFont:
-    """Safely loads TrueType font with fallback."""
+    """
+    Safely loads TrueType font with fallback.
+    Explicitly forces BASIC layout engine to ensure identical, correct RTL rendering
+    on Linux (where Pillow defaults to Raqm, causing double-bidi reversal/letter disconnection).
+    """
     if font_path.exists():
         try:
+            if hasattr(ImageFont, 'Layout') and hasattr(ImageFont.Layout, 'BASIC'):
+                return ImageFont.truetype(str(font_path), size, layout_engine=ImageFont.Layout.BASIC)
             return ImageFont.truetype(str(font_path), size)
         except Exception:
-            pass
+            try:
+                return ImageFont.truetype(str(font_path), size)
+            except Exception:
+                pass
     return ImageFont.load_default()
 
 def draw_centered_text(

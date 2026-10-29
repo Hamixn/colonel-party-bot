@@ -191,6 +191,15 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(texts.DARKROOM_FINAL_PROMPT, expected_darkroom)
         self.assertEqual(game.DARKROOM_FINAL_PROMPT, expected_darkroom)
 
+    def test_invitation_card_generation(self):
+        """Verifies that invitation and immunity cards generate successfully without font or bidi crash."""
+        import card_generator
+        card_buf = card_generator.generate_invitation_card("سمیرا (Samira)", "role_player", 1, soul_pin="310")
+        self.assertGreater(len(card_buf.getvalue()), 50000)
+
+        imm_buf = card_generator.generate_immunity_card("سمیرا (Samira)", "310")
+        self.assertGreater(len(imm_buf.getvalue()), 10000)
+
 
 if __name__ == "__main__":
     unittest.main()
