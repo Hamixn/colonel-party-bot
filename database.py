@@ -1000,70 +1000,101 @@ async def get_special_characters() -> Dict[str, Optional[Dict[str, Any]]]:
                     result[r["character_role"]] = r
             return result
 
+
 async def start_midnight_game(team_count: int = 3) -> Dict[int, Dict[str, Any]]:
     """
-    Starts Phase 3 (The 24:00 Midnight Investigation Game):
-    1. Splits active mystery players into 3 teams (تیم ۱ to ۳) of 4-5 players each.
-    2. Appoints 1 secret traitor per team (is_traitor=1).
-    3. Resets riddles (riddle_1_solved=0, riddle_2_solved=0).
-    4. Marks midnight_game_started=1 and game_phase='midnight_investigation' in game_state.
-    5. Returns teams dict keyed by team_number (1..3).
+    Starts exactly three teams. If the social phase has already assigned the
+    witnesses to their teams, preserve that lineup at midnight rather than
+    rerolling it. Repeated calls after midnight never reset progress.
     """
+    labels = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}
     players = await get_players()
     if not players:
         return {}
 
-    team_names = {
-        1: "تیم ۱ (خون)",
-        2: "تیم ۲ (سایه)",
-        3: "تیم ۳ (سکوت)",
-        4: "تیم ۴ (آینه)"
-    }
-    actual_count = min(team_count, 4)
+    phase = await get_game_state("game_phase", "registration")
+    started = await get_game_state("midnight_game_started", "0") == "1"
+
+    async def existing_assignments() -> Dict[int, Dict[str, Any]]:
+        result: Dict[int, Dict[str, Any]] = {}
+        for team_num in (1, 2, 3):
+            members = await get_team_members(team_num)
+            traitor = next((m for m in members if m.get("is_traitor") == 1), None)
+            result[team_num] = {
+                "name": labels[team_num], "members": members, "traitor": traitor
+            }
+        return result
+
+    if started and phase in ("midnight_investigation", "central_deduction", "finale", "completed"):
+        # Idempotent: never shuffle teams or reset evidence after investigation starts.
+        return await existing_assignments()
+
+    if started and phase == "social_game":
+        # /start_social_game pre-assigns teams so each witness can receive the
+        # right character card. Keep those assignments; only open puzzle play now.
+        assignments = await existing_assignments()
+        if any(assignments[t]["members"] for t in (1, 2, 3)):
+            for team_num in (1, 2, 3):
+                for riddle_num in (1, 2):
+                    await set_game_state(f"team_{team_num}_riddle_{riddle_num}", "0")
+                await set_game_state(f"team_{team_num}_both_solved", "0")
+                await set_game_state(f"team_{team_num}_completed_at", "")
+            await set_game_state("deductions_closed", "0")
+            await set_game_state("game_phase", "midnight_investigation")
+            return assignments
 
     random.shuffle(players)
     assigned: Dict[int, Dict[str, Any]] = {
-        i: {"name": team_names[i], "members": [], "traitor": None}
-        for i in range(1, actual_count + 1)
+        i: {"name": labels[i], "members": [], "traitor": None}
+        for i in (1, 2, 3)
     }
 
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA busy_timeout = 5000")
         await db.execute("""
             UPDATE guests
             SET team_number = NULL, team_name = NULL, is_traitor = 0,
-                riddle_1_solved = 0, riddle_2_solved = 0
+                riddle_1_solved = 0, riddle_2_solved = 0, accusation = NULL
         """)
-
-        for idx, p in enumerate(players):
-            team_num = (idx % actual_count) + 1
-            t_name = team_names[team_num]
-            p["team_number"] = team_num
-            p["team_name"] = t_name
-            assigned[team_num]["members"].append(p)
+        for idx, person in enumerate(players):
+            team_num = (idx % 3) + 1
+            person["team_number"] = team_num
+            person["team_name"] = labels[team_num]
+            assigned[team_num]["members"].append(person)
             await db.execute(
                 "UPDATE guests SET team_number = ?, team_name = ? WHERE id = ?",
-                (team_num, t_name, p["id"])
+                (team_num, labels[team_num], person["id"])
             )
 
-        # Select 1 traitor per team
-        for team_num in range(1, actual_count + 1):
+        for team_num in (1, 2, 3):
             members = assigned[team_num]["members"]
             if members:
                 traitor = random.choice(members)
                 traitor["is_traitor"] = 1
                 assigned[team_num]["traitor"] = traitor
-                await db.execute(
-                    "UPDATE guests SET is_traitor = 1 WHERE id = ?",
-                    (traitor["id"],)
-                )
+                await db.execute("UPDATE guests SET is_traitor = 1 WHERE id = ?", (traitor["id"],))
 
+        # A new game session starts with no prior winner or stale accusation rows.
+        await db.execute("DELETE FROM team_accusations")
+        await db.execute("""
+            DELETE FROM game_state
+            WHERE key LIKE 'team_4_%'
+               OR key IN (
+                   'game_winner_team', 'winning_team_id', 'winning_timestamp',
+                   'game_winner_recorded_at', 'game_winner_accusation_id',
+                   'deductions_closed', 'finale_triggered_at', 'reveal_triggered_at',
+                   'traitors_revealed'
+               )
+        """)
         await db.commit()
 
-    # Clear riddle game state
-    for i in range(1, actual_count + 1):
-        await set_game_state(f"team_{i}_riddle_1", "0")
-        await set_game_state(f"team_{i}_riddle_2", "0")
+    for team_num in (1, 2, 3):
+        for riddle_num in (1, 2):
+            await set_game_state(f"team_{team_num}_riddle_{riddle_num}", "0")
+        await set_game_state(f"team_{team_num}_both_solved", "0")
+        await set_game_state(f"team_{team_num}_completed_at", "")
 
+    await set_game_state("deductions_closed", "0")
     await set_game_state("midnight_game_started", "1")
     await set_game_state("game_phase", "midnight_investigation")
     return assigned
@@ -1137,7 +1168,7 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
         return {"status": "not_registered"}
 
     team_num = guest.get("team_number")
-    if not team_num or team_num < 1 or team_num > 4:
+    if not team_num or team_num not in (1, 2, 3):
         return {"status": "no_team"}
 
     team_riddle_answers = {
@@ -1152,10 +1183,6 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
         3: {
             1: ["سکوت", "silence", "سکوت مطلق"],
             2: ["5", "پنج", "۵"]
-        },
-        4: {
-            1: ["آینه", "mirror", "اینه", "آيينه"],
-            2: ["12", "۱۲", "2400", "۲۴۰۰"]
         }
     }
 
@@ -1280,14 +1307,15 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
         }
 
 async def assign_tester_team(telegram_id: int, team_number: int) -> Dict[str, Any]:
-    """Assigns or switches a tester's team (1, 2, 3, or 4)."""
+    """Assigns or switches a tester's team (1, 2, or 3 only)."""
     team_names = {
         1: "تیم ۱ (خون)",
         2: "تیم ۲ (سایه)",
         3: "تیم ۳ (سکوت)",
-        4: "تیم ۴ (آینه)"
     }
-    t_name = team_names.get(team_number, f"تیم {team_number}")
+    if team_number not in team_names:
+        return {"status": "invalid_team", "team_number": team_number}
+    t_name = team_names[team_number]
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT id FROM guests WHERE telegram_id = ?", (telegram_id,)) as cursor:
             row = await cursor.fetchone()
@@ -1397,7 +1425,7 @@ async def reset_team_riddles(team_number: int | None = None) -> bool:
             )
         else:
             await db.execute("UPDATE guests SET riddle_1_solved = 0, riddle_2_solved = 0, is_immune = 0, got_stickered = 0")
-            for i in range(1, 5):
+            for i in range(1, 4):
                 await db.execute(
                     "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
                     (f"team_{i}_riddle_1", "0")
