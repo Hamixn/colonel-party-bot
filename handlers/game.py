@@ -525,8 +525,19 @@ async def cmd_accuse(message: Message, bot: Bot):
         return
 
     team_num = guest.get("team_number")
-    if not team_num:
-        await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید.")
+    if team_num not in (1, 2, 3):
+        await message.answer("⚠️ شما عضو یکی از سه تیم رقابتی نیستید.")
+        return
+
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction"):
+        await message.answer("⏳ ثبت اتهام فقط در زمان رسمی تحقیقات نیمه‌شب فعال است.")
+        return
+
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await message.answer("🔎 ابتدا هر دو پاکت اختصاصی تیم خود را حل کنید؛ سپس اتهام مستدل ثبت می‌شود.")
         return
 
     raw_payload = message.text.partition(" ")[2].strip()
@@ -621,69 +632,47 @@ async def cmd_accuse(message: Message, bot: Bot):
     # Always respond neutrally without disclosing culprit
     await message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
 
-@router.callback_query(F.data.startswith("accuse_"))
-async def cb_accuse(callback: CallbackQuery, bot: Bot):
-    """Handles inline button accusation selection."""
-    if await database.is_deductions_closed():
-        await callback.answer("مهلت ثبت اتهام توسط میزبان به پایان رسیده است!", show_alert=True)
-        await callback.message.answer("⛔️ مهلت ثبت اتهام توسط میزبان به پایان رسیده است.")
-        return
 
+@router.callback_query(F.data.startswith("accuse_"))
+async def cb_accuse(callback: CallbackQuery):
+    """Suspect buttons never submit an incomplete accusation."""
+    if await database.is_deductions_closed():
+        await callback.answer("مهلت ثبت اتهام بسته شده است.", show_alert=True)
+        return
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
-        await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
+        await callback.answer("اطلاعات شما یافت نشد.", show_alert=True)
         return
-
     team_num = guest.get("team_number")
-    if not team_num:
-        await callback.answer("شما در تیمی قرار ندارید!", show_alert=True)
+    if guest.get("role") != "role_player" or team_num not in (1, 2, 3):
+        await callback.answer("ثبت اتهام فقط برای سه تیم رقابتی است.", show_alert=True)
         return
 
-    suspect_key = callback.data.replace("accuse_", "").strip()
+    phase = await database.get_game_state("game_phase", "registration")
+    if phase not in ("midnight_investigation", "central_deduction"):
+        await callback.answer("هنوز زمان ثبت اتهام نرسیده است.", show_alert=True)
+        return
+    r1 = (await database.get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+    r2 = (await database.get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    if not (r1 and r2):
+        await callback.answer("ابتدا هر دو پاکت تیم خود را ثبت کنید.", show_alert=True)
+        return
+
+    key = callback.data.removeprefix("accuse_")
     name_map = {
         "نادر": "نادر وثوق",
         "شیرین": "شیرین نوری",
         "کیوان": "کیوان رستگار",
         "دکتر": "دکتر فریدون مهر",
-        "سرهنگ": "سرهنگ بهرام فرهمند"
+        "سرهنگ": "سرهنگ بهرام فرهمند",
     }
-    suspect_name = name_map.get(suspect_key, suspect_key)
-
-    eval_res = game.evaluate_structured_accusation(
-        team_number=team_num,
-        suspect_name=suspect_name,
-        motive_opportunity="",
-        evidence_point_1="",
-        evidence_point_2=""
+    suspect = name_map.get(key, key)
+    await callback.answer("نام مظنون انتخاب شد.")
+    await callback.message.answer(
+        f"مظنون انتخاب‌شده: **{suspect}**\n\n"
+        "این انتخاب هنوز اتهام ثبت‌شده نیست. برای ثبت نظریه‌ی محرمانه، دستور کامل را با انگیزه و دو مدرک متمایز ارسال کنید:\n"
+        f"/accuse {suspect} | انگیزه یا فرصت | مدرک اول از پرونده‌ی تیم شما | مدرک دوم از دسته‌ای متفاوت"
     )
-    rec_res = await database.record_structured_accusation(
-        team_id=team_num,
-        team_number=team_num,
-        telegram_id=callback.from_user.id,
-        suspect_name=suspect_name,
-        motive_opportunity="",
-        evidence_point_1="",
-        evidence_point_2="",
-        is_correct=eval_res["is_correct"]
-    )
-
-    if rec_res.get("is_first_winner") and config.ADMIN_USER_ID != 0:
-        admin_alert = texts.ADMIN_WINNER_ALERT.format(
-            team_number=team_num,
-            team_name=guest.get("team_name") or f"تیم {team_num}",
-            submitter_name=guest.get("full_name") or str(callback.from_user.id),
-            telegram_id=callback.from_user.id,
-            submitted_at=datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
-            suspect_name=suspect_name,
-            matched_points="، ".join(eval_res.get("matched_points", [])) or "مدارک منطبق پرونده"
-        )
-        try:
-            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=admin_alert)
-        except Exception:
-            pass
-
-    await callback.answer("نظریه ثبت شد!")
-    await callback.message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
 
 @router.message(Command("lantern"))
 @router.message(Command("red_lantern"))
