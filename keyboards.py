@@ -225,24 +225,22 @@ def social_mission_player_kb(is_immune: bool = False, got_stickered: bool = Fals
         ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def accuse_suspects_kb() -> InlineKeyboardMarkup:
-    """Keyboard for submitting team conclusion at central deduction table."""
+    """Private suspect selector; handler then requests evidence and rationale."""
     suspects = [
-        "نادر وثوق (مدیر امور مالی)",
-        "شیرین نوری (شاهد فراری)",
-        "کیوان رستگار (عکاس مهمانی)",
-        "دکتر فریدون مهر (پزشک معالج)",
-        "سرهنگ بهرام فرهمند"
+        ("نادر وثوق (مدیر امور مالی)", "accuse_nader"),
+        ("شیرین نوری (شاهد)", "accuse_shirin"),
+        ("کیوان رستگار (عکاس)", "accuse_keyvan"),
+        ("دکتر فریدون مهر (پزشک)", "accuse_fereydoun"),
+        ("سرهنگ بهرام فرهمند", "accuse_colonel"),
     ]
-    buttons = []
-    for s in suspects:
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"🎯 متهم اصلی: {s}",
-                callback_data=f"accuse_{s.split(' ')[0]}"
-            )
-        ])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"🎯 {label}", callback_data=callback_data)]
+            for label, callback_data in suspects
+        ]
+    )
 
 def admin_confirm_hunters_kb() -> InlineKeyboardMarkup:
     """Confirm hunter assignment."""
