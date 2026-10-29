@@ -183,14 +183,21 @@ def evaluate_structured_accusation(
     evidence_point_1: str,
     evidence_point_2: str
 ) -> dict:
-    """Require two different team-specific evidence categories in separate fields."""
-    suspect = normalize_mystery_text(suspect_name)
+    """Validate two independent evidence fields from this team's own dossier."""
+    suspect = normalize_mystery_text(suspect_name or "")
+    for punctuation in ('«', '»', '"', "'", "(", ")", "[", "]", "{", "}", ",", ".", "،", ";", "؛"):
+        suspect = suspect.replace(punctuation, "")
+    suspect = " ".join(suspect.split())
+    for prefix in ("آقای محترم ", "جناب آقای ", "آقای ", "متهم اصلی ", "مظنون اصلی ", "اقای "):
+        if suspect.startswith(prefix):
+            suspect = suspect[len(prefix):].strip()
+            break
+
     aliases = ("نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough")
     other_suspects = (
         "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر",
-        "فریدون مهر", "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند",
-        "بهرام فرهمند", "سرهنگ", "آرش", "shirin", "keyvan", "fereydoun",
-        "bahram", "arash"
+        "فریدون مهر", "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند", "بهرام فرهمند",
+        "سرهنگ", "آرش", "shirin", "keyvan", "fereydoun", "bahram", "arash"
     )
     is_other = any(name in suspect for name in other_suspects)
     is_nader = (not is_other) and any(
@@ -206,12 +213,13 @@ def evaluate_structured_accusation(
         1: {
             "a": (
                 "خون", "لبه استخر", "استخر", "جراحت سر", "ضربه سر", "آسیب سر",
-                "آسيب سر", "پیش از ورود به آب", "خونریزی", "blood sample", "head injury"
+                "آسيب سر", "پیش از ورود به آب", "خونریزی", "blood sample", "head injury",
+                "pool blood", "pool"
             ),
             "b": (
                 "اختلاس", "حساب 84102", "دفتر مالی", "دفتر حساب", "دفترچه حساب",
                 "انتقال مالی", "کسری بودجه", "رسید r-17", "کد nv-17", "ledger",
-                "embezzlement", "account 84102"
+                "embezzlement", "account 84102", "accounting ledger", "bank transfer"
             ),
         },
         2: {
@@ -222,7 +230,7 @@ def evaluate_structured_accusation(
             "b": (
                 "تناقض زمانی", "ادعای خروج", "خروج قبل از 22", "ترک باغ",
                 "خروج پس از 22", "زمان خروج", "حضور پس از ساعت 22", "timeline",
-                "contradiction", "departure"
+                "contradiction", "departure", "exit before 22"
             ),
         },
         3: {
@@ -232,7 +240,8 @@ def evaluate_structured_accusation(
             ),
             "b": (
                 "فهرست بایگانی", "فهرست 5 نفر", "5 نفر", "پنج نفر", "بایگانی",
-                "فهرست", "آرشیو", "archive index", "archive", "index", "five suspects"
+                "فهرست", "آرشیو", "archive index", "archive", "index", "five suspects",
+                "suspects list"
             ),
         },
     }
@@ -244,33 +253,33 @@ def evaluate_structured_accusation(
             if normalize_mystery_text(keyword)
         )
 
-    matched_points = []
     team_categories = categories.get(team_number)
+    matched_points = []
+    category_1 = category_2 = None
     if distinct_fields and team_categories:
-        p1_a = has_keyword(ev1, team_categories["a"])
-        p1_b = has_keyword(ev1, team_categories["b"])
-        p2_a = has_keyword(ev2, team_categories["a"])
-        p2_b = has_keyword(ev2, team_categories["b"])
+        a1 = has_keyword(ev1, team_categories["a"])
+        b1 = has_keyword(ev1, team_categories["b"])
+        a2 = has_keyword(ev2, team_categories["a"])
+        b2 = has_keyword(ev2, team_categories["b"])
 
-        if p1_a and p2_b:
-            cats = ("a", "b")
-        elif p1_b and p2_a:
-            cats = ("b", "a")
-        else:
-            cats = None
+        # A single field cannot satisfy both rubrics; ambiguous/poisoned text
+        # is rejected rather than counted as two independent pieces of evidence.
+        category_1 = "a" if a1 and not b1 else "b" if b1 and not a1 else None
+        category_2 = "a" if a2 and not b2 else "b" if b2 and not a2 else None
 
-        if cats:
-            point_labels = {
-                1: {"a": "یافته‌ی جسمانی", "b": "ثبت مالی"},
-                2: {"a": "عکس و بازتاب", "b": "تناقض زمانی"},
-                3: {"a": "شهادت شاهدان", "b": "فهرست بایگانی"},
-            }
-            matched_points = [
-                f"مدرک اول: {point_labels[team_number][cats[0]]}",
-                f"مدرک دوم: {point_labels[team_number][cats[1]]}",
-            ]
+        point_labels = {
+            1: {"a": "ضربه سر و آثار خون پیش از غرق‌شدن", "b": "ثبت مالی و اختلاس"},
+            2: {"a": "عکس و بازتاب پنجره در ساعت ۲۲:۱۹", "b": "تناقض زمانی و ادعای خروج"},
+            3: {"a": "شهادت شاهدان و تهدید", "b": "فهرست بایگانی پنج‌نفره"},
+        }
+        if category_1:
+            matched_points.append(point_labels[team_number][category_1])
+        if category_2 and category_2 != category_1:
+            matched_points.append(point_labels[team_number][category_2])
 
-    is_correct = bool(is_nader and len(matched_points) == 2)
+    is_correct = bool(
+        is_nader and distinct_fields and category_1 and category_2 and category_1 != category_2
+    )
     return {
         "is_correct": is_correct,
         "is_suspect_correct": is_nader,
