@@ -69,23 +69,7 @@ async def init_db() -> None:
             if col_name not in columns:
                 await db.execute(f"ALTER TABLE guests ADD COLUMN {col_name} {col_type}")
 
-        # Ensure Hamixon (102725917) is pre-configured in Team 1 and missions are unlocked for testing
-        async with db.execute("SELECT id, team_number FROM guests WHERE telegram_id = 102725917") as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                await db.execute("""
-                    INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name, has_car, serial_number, soul_pin, social_mission_id)
-                    VALUES (102725917, 'Hamixon', 'حامد', 'role_player', 1, 'تیم ۱ (خون)', 0, 53, '310', 1)
-                """)
-            else:
-                await db.execute("""
-                    UPDATE guests 
-                    SET telegram_username = 'Hamixon',
-                        role = 'role_player',
-                        team_number = COALESCE(team_number, 1),
-                        team_name = COALESCE(team_name, 'تیم ۱ (خون)')
-                    WHERE telegram_id = 102725917
-                """)
+        # Ensure missions are unlocked by default for smooth gameplay
         await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('force_unlock_missions', '1')")
 
         await db.commit()
@@ -854,13 +838,94 @@ async def assign_tester_team(telegram_id: int, team_number: int) -> Dict[str, An
     }
     t_name = team_names.get(team_number, f"تیم {team_number}")
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            UPDATE guests 
-            SET team_number = ?, team_name = ?, role = 'role_player'
-            WHERE telegram_id = ?
-        """, (team_number, t_name, telegram_id))
+        async with db.execute("SELECT id FROM guests WHERE telegram_id = ?", (telegram_id,)) as cursor:
+            row = await cursor.fetchone()
+        if row:
+            await db.execute("""
+                UPDATE guests 
+                SET team_number = ?, team_name = ?, role = 'role_player'
+                WHERE telegram_id = ?
+            """, (team_number, t_name, telegram_id))
+        else:
+            serial_number = await get_next_serial_number(db=db)
+            soul_pin = generate_soul_pin(serial_number)
+            await db.execute("""
+                INSERT INTO guests (telegram_id, telegram_username, full_name, role, team_number, team_name, has_car, serial_number, soul_pin, social_mission_id)
+                VALUES (?, 'Hamixon', 'حامد', 'role_player', ?, ?, 0, ?, ?, 1)
+            """, (telegram_id, team_number, t_name, serial_number, soul_pin))
         await db.commit()
     return {"team_number": team_number, "team_name": t_name}
+
+async def clean_all_guests() -> int:
+    """
+    Cleans all registered guests from the database and resets game progression state
+    so that guests can start registration afresh via /start.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT COUNT(*) FROM guests")
+        row = await cursor.fetchone()
+        count = row[0] if row else 0
+
+        # Delete all guests
+        await db.execute("DELETE FROM guests")
+        try:
+            await db.execute("DELETE FROM sqlite_sequence WHERE name='guests'")
+        except Exception:
+            pass
+
+        # Reset all game progression states
+        keys_to_clear = [
+            'social_game_started',
+            'midnight_game_started',
+            'team_1_riddle_1',
+            'team_1_riddle_2',
+            'team_2_riddle_1',
+            'team_2_riddle_2',
+            'team_3_riddle_1',
+            'team_3_riddle_2',
+            'team_1_accusation',
+            'team_2_accusation',
+            'team_3_accusation',
+            'rescue_count',
+            'rescue_alert_count',
+            'traitors_revealed'
+        ]
+        placeholders = ','.join(['?'] * len(keys_to_clear))
+        await db.execute(f"DELETE FROM game_state WHERE key IN ({placeholders})", keys_to_clear)
+        await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_phase', 'registration')")
+
+        await db.commit()
+        return count
+
+async def delete_guest_by_telegram_id(telegram_id: int) -> bool:
+    """Deletes a single guest by their Telegram ID so they can re-register from /start."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM guests WHERE telegram_id = ?", (telegram_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+async def delete_guest_by_identifier(identifier: str) -> Optional[str]:
+    """Deletes a guest by telegram_id, username, or full_name."""
+    ident = identifier.strip().lstrip("@")
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        target = None
+        if ident.isdigit():
+            cursor = await db.execute("SELECT * FROM guests WHERE telegram_id = ?", (int(ident),))
+            target = await cursor.fetchone()
+        if not target:
+            cursor = await db.execute("SELECT * FROM guests WHERE LOWER(telegram_username) = LOWER(?)", (ident,))
+            target = await cursor.fetchone()
+        if not target:
+            cursor = await db.execute("SELECT * FROM guests WHERE full_name LIKE ?", (f"%{ident}%",))
+            target = await cursor.fetchone()
+        
+        if target:
+            name = target["full_name"]
+            await db.execute("DELETE FROM guests WHERE id = ?", (target["id"],))
+            await db.commit()
+            return name
+        return None
 
 async def reset_team_riddles(team_number: int | None = None) -> bool:
     """Resets solved riddle states for testing."""

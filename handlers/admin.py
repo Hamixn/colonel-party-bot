@@ -56,7 +56,10 @@ async def cmd_admin_help(message: Message):
         "🕯 `/broadcast_players <متن>` — ارسال پیام اختصاصی به گروه بازیکنان\n"
         "👱‍♀️ `/broadcast_blondes <متن>` — ارسال پیام اختصاصی به گروه بلوندهای بی‌گناه\n"
         "🔓 `/unlock_missions` — باز کردن دستی ماموریت‌های مخفی\n"
-        "🔒 `/lock_missions` — قفل کردن مجدد ماموریت‌های مخفی"
+        "🔒 `/lock_missions` — قفل کردن مجدد ماموریت‌های مخفی\n"
+        "🧹 `/clean_guests` (یا `/reset_guests`) — پاکسازی کامل لیست مهمانان جهت ثبت‌نام مجدد\n"
+        "👤 `/reset_guest <نام یا آیدی>` — حذف یک مهمان خاص جهت ثبت‌نام مجدد\n"
+        "🧪 `/test` — راهنما و پنل تست جریان بازی (برای تستر)"
     )
     await message.answer(help_text)
 
@@ -631,3 +634,53 @@ async def cmd_test_reset(message: Message):
     t_num = guest.get("team_number", 1) if guest else 1
     await database.reset_team_riddles(t_num)
     await message.answer(f"♻️ وضعیت معماهای **تیم {t_num}** ریست شد. اکنون می‌توانید دوباره با `/solve` پاکت‌ها را حل کنید.")
+
+@router.message(Command("clean_guests"))
+@router.message(Command("reset_guests"))
+async def cmd_clean_guests(message: Message):
+    """Wipes all registered guests from database so everyone can register from scratch."""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    if not is_admin(user_id, username):
+        await message.answer("⛔️ دسترسی غیرمجاز. این دستور فقط مخصوص مدیر است.")
+        return
+
+    count = await database.clean_all_guests()
+    msg = (
+        f"🧹 **لیست مهمانان با موفقیت کاملاً پاکسازی شد!**\n\n"
+        f"👥 **تعداد مهمانان حذف‌شده:** {count} نفر\n"
+        f"🔢 شمارنده شماره سریال‌ها مجدداً از **#01** تنظیم گردید.\n"
+        f"🔄 وضعیت فاز بازی به `registration` ریست شد.\n\n"
+        f"✨ اکنون تمامی افراد می‌توانند با ارسال دستور /start ثبت‌نام را از ابتدا آغاز کرده و کارت دعوت شیک و جدید خود را دریافت نمایند."
+    )
+    await message.answer(msg)
+
+@router.message(Command("reset_guest"))
+async def cmd_reset_single_guest(message: Message):
+    """Deletes a single guest by username, ID, or name so they can re-register."""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    if not is_admin(user_id, username):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    arg = message.text.partition(" ")[2].strip()
+    if not arg:
+        await message.answer("⚠️ لطفاً آیدی عددی، یوزرنیم یا نام مهمان را مشخص کنید:\n`/reset_guest 102725917` یا `/reset_guest @username` یا `/reset_guest سمیرا`")
+        return
+
+    name = await database.delete_guest_by_identifier(arg)
+    if name:
+        await message.answer(f"✅ ثبت‌نام مهمان «**{name}**» با موفقیت پاک شد. ایشان می‌توانند دوباره با /start ثبت‌نام کنند.")
+    else:
+        await message.answer(f"❌ مهمانی با مشخصات «{arg}» در دیتابیس یافت نشد.")
+
+@router.message(Command("reset_me"))
+async def cmd_reset_me(message: Message):
+    """Allows an admin/tester to delete their own registration to test /start from scratch."""
+    user_id = message.from_user.id
+    deleted = await database.delete_guest_by_telegram_id(user_id)
+    if deleted:
+        await message.answer("♻️ ثبت‌نام شما پاک شد. اکنون می‌توانید با ارسال /start از اول ثبت‌نام کرده و کارت دعوت را دریافت کنید.")
+    else:
+        await message.answer("شما در حال حاضر در دیتابیس ثبت‌نام نشده‌اید. می‌توانید مستقیماً /start را ارسال کنید.")

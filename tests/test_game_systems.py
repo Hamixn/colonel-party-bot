@@ -300,6 +300,39 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         r2_state = await database.get_game_state("team_2_riddle_1")
         self.assertEqual(r2_state, "0")
 
+    async def test_clean_and_reset_guests(self):
+        """Verifies that clean_all_guests clears the guest roster and resets states."""
+        # Check that guests currently exist
+        guests = await database.get_all_guests()
+        self.assertGreater(len(guests), 0)
+
+        # Clean all guests
+        deleted_count = await database.clean_all_guests()
+        self.assertGreaterEqual(deleted_count, 1)
+
+        # Check roster is now empty
+        after_guests = await database.get_all_guests()
+        self.assertEqual(len(after_guests), 0)
+
+        # Check game_phase is reset to 'registration'
+        phase = await database.get_game_state("game_phase")
+        self.assertEqual(phase, "registration")
+
+        # Test single delete
+        await database.register_or_update_guest(
+            telegram_id=999999,
+            telegram_username="test_user",
+            full_name="تست تستر",
+            has_car=0,
+            car_number=None
+        )
+        found = await database.get_guest_by_telegram_id(999999)
+        self.assertIsNotNone(found)
+        deleted = await database.delete_guest_by_telegram_id(999999)
+        self.assertTrue(deleted)
+        after_del = await database.get_guest_by_telegram_id(999999)
+        self.assertIsNone(after_del)
+
     async def test_alibi_shield_lifecycle(self):
         """
         Verifies that alibi shield:
@@ -424,22 +457,6 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c2, 2)
         self.assertEqual(c3, 3)
         self.assertEqual(c4, 4)
-        res1 = await database.check_team_riddle(102725917, "خون")
-        self.assertEqual(res1["status"], "riddle_solved")
-
-        # Switch to Team 2
-        await database.assign_tester_team(102725917, 2)
-        guest = await database.get_guest_by_telegram_id(102725917)
-        self.assertEqual(guest["team_number"], 2)
-
-        # Check Team 2 solve
-        res2 = await database.check_team_riddle(102725917, "سایه")
-        self.assertEqual(res2["status"], "riddle_solved")
-
-        # Reset Team 2 riddles
-        await database.reset_team_riddles(2)
-        r2_state = await database.get_game_state("team_2_riddle_1")
-        self.assertEqual(r2_state, "0")
 
 
 if __name__ == "__main__":
