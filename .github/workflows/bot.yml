@@ -83,7 +83,7 @@ jobs:
               echo "Encrypted SQLite state for the next runner."
             fi
           }
-          trap cleanup EXIT INT TERM
+          trap cleanup EXIT
           echo "🚀 Launching Colonel Party Bot with persistent encrypted SQLite state..."
           set +e
           timeout --signal=INT --kill-after=30s 290m python bot.py
