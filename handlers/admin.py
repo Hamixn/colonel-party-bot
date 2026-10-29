@@ -393,11 +393,82 @@ async def cmd_start_midnight_game(message: Message, bot: Bot):
 
     await message.answer("\n".join(summary))
 
+@router.message(Command("hint"))
+async def cmd_hint(message: Message, bot: Bot):
+    """
+    Admin command to send progressive hints to a team.
+    Usage: /hint <team_number: 1-3> <level: 1-3>
+    Validates admin, team, and level; delivers hint privately to all members of that team.
+    """
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔️ دسترسی غیرمجاز.")
+        return
+
+    parts = message.text.strip().split()
+    if len(parts) < 3:
+        await message.answer(
+            "⚠️ فرمت صحیح دستور:\n"
+            "`/hint <شماره تیم: 1-3> <سطح راهنمایی: 1-3>`\n\n"
+            "سطوح راهنمایی:\n"
+            "• سطح ۱: اشاره ظریف (Subtle pointer)\n"
+            "• سطح ۲: توضیح شفاف (Explicit explanation)\n"
+            "• سطح ۳: راهنمای مستقیم میزبان (Host fallback)"
+        )
+        return
+
+    try:
+        t_raw = parts[1].replace("۱", "1").replace("۲", "2").replace("۳", "3")
+        l_raw = parts[2].replace("۱", "1").replace("۲", "2").replace("۳", "3")
+        team_num = int(t_raw)
+        level = int(l_raw)
+    except ValueError:
+        await message.answer("❌ شماره تیم و سطح باید عدد باشند (مثلاً `/hint 1 2`).")
+        return
+
+    if team_num not in (1, 2, 3):
+        await message.answer("❌ شماره تیم باید ۱، ۲ یا ۳ باشد.")
+        return
+
+    if level not in (1, 2, 3):
+        await message.answer("❌ سطح راهنمایی باید ۱، ۲ یا ۳ باشد.")
+        return
+
+    hint_content = game.PROGRESSIVE_HINTS.get(team_num, {}).get(level)
+    if not hint_content:
+        await message.answer("❌ متن راهنمایی برای این تیم و سطح یافت نشد.")
+        return
+
+    hint_msg = texts.HINT_DELIVERY_TEMPLATE.format(
+        level=level,
+        hint_text=hint_content
+    )
+
+    members = await database.get_team_members(team_num)
+    if not members:
+        await message.answer(f"⚠️ هیچ عضوی برای تیم {team_num} در سیستم یافت نشد.")
+        return
+
+    success = 0
+    failed = 0
+    for m in members:
+        tid = m.get("telegram_id")
+        if tid:
+            try:
+                await bot.send_message(chat_id=tid, text=hint_msg)
+                success += 1
+            except Exception:
+                failed += 1
+
+    await message.answer(
+        f"💡 راهنمایی سطح {level} با موفقیت برای {success} عضو تیم {team_num} ارسال شد. (خطا: {failed})"
+    )
+
 @router.message(Command("reveal_traitors"))
 async def cmd_reveal_traitors(message: Message, bot: Bot):
     """
     Phase 4 (02:00 Reveal):
-    Broadcasts the 5 Infected and 4 Traitors to all guests.
+    Broadcasts the mystery solution, distinguishing Nader as sole killer from witnesses,
+    and reveals infected and traitors to all guests.
     """
     if not is_admin(message.from_user.id):
         await message.answer("⛔️ دسترسی غیرمجاز.")
@@ -420,10 +491,26 @@ async def cmd_reveal_traitors(message: Message, bot: Bot):
         t_lines.append(f"{idx}. {t['full_name']} ({t_label}) {uname}")
     t_str = "\n".join(t_lines) if t_lines else "اطلاعاتی ثبت نشده است."
 
-    reveal_text = texts.REVEAL_ANNOUNCEMENT.format(
-        hunters_list=h_str,
-        traitors_list=t_str
-    )
+    winning_team = await database.get_game_state("game_winner_team", "")
+    win_team_text = "هنوز مشخص نشده است"
+    if winning_team:
+        try:
+            wt_num = int(winning_team)
+            win_team_text = {1: "تیم ۱ (خون)", 2: "تیم ۲ (سایه)", 3: "تیم ۳ (سکوت)"}.get(wt_num, f"تیم {wt_num}")
+        except Exception:
+            win_team_text = winning_team
+
+    try:
+        reveal_text = texts.REVEAL_ANNOUNCEMENT.format(
+            hunters_list=h_str,
+            traitors_list=t_str,
+            winning_team_text=win_team_text
+        )
+    except KeyError:
+        reveal_text = texts.REVEAL_ANNOUNCEMENT.format(
+            hunters_list=h_str,
+            traitors_list=t_str
+        )
 
     success, failed = await send_broadcast(bot, reveal_text)
     await message.answer(f"✅ پیام افشای نهایی به {success} مهمان مخابره شد. (خطا: {failed})")

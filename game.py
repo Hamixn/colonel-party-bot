@@ -137,13 +137,12 @@ CHARACTER_ROLE_CARDS = {
 }
 
 CLIMAX_INSTRUCTIONS = (
-    "🔓 **[پرونده‌ی سال ۵۶ بازگشایی شد — ماموریتِ نهایی!]**\n\n"
+    "🔓 **[پرونده‌ی سال ۵۶ بازگشایی شد — تجمیع اسناد نهایی!]**\n\n"
     "شما حقیقتِ شبِ حادثه را کشف کردید:\n"
-    "سرهنگ هم‌اکنون در تاریکیِ **اتاقِ عمارت** روی تخت دراز کشیده و با چشمانِ باز منتظر است کسی آخرین یادگاریِ پسرش را از کنارِ استخر برایش بیاورد!\n\n"
-    "۱. فوراً و بی‌صدا به **«لبه‌ی استخر»** بروید و **«تیشرتِ پسرِ سرهنگ»** را از مخفیگاه بردارید.\n"
-    "۲. کفش‌هایتان را دربیاورید و در سکوتِ مطلق وارد **«اتاقِ تاریکِ عمارت»** شوید.\n"
-    "۳. روبه‌روی تختِ سرهنگ بایستید، سه کلمه‌ی رمزِ **«خون، سایه، سکوت»** را به ترتیب در گوشِ او زمزمه کنید و بلافاصله **«تیشرتِ پسرش را روی صورتِ سرهنگ بکشید»** تا روحش آرام بگیرد!\n\n"
-    "⚠️ **هشدارِ مرگبار:** یکی از اعضای تیمِ شما «خائن» است! اگر گولِ خائن را بخورید و کلمات را اشتباه بگویید، به محضِ اینکه دستتان به صورتِ سرهنگ نزدیک شود، سرهنگ مچِ دستتان را می‌گیرد!"
+    "تمامی شواهد و اسناد کاغذی پاکت‌های تیم خود را به همراه داشته باشید.\n\n"
+    "۱. برگه‌های مدارک، گزارش پزشکی و تصاویر پرونده را روی میز مرکزی تجمیع نمایید.\n"
+    "۲. با هماهنگی میزبان وارد محوطه تاریکخانه عکاسی شوید.\n"
+    "۳. نسخه چاپی آخرین سند مفقوده را تحویل گرفته و به نوار اعترافات نهایی گوش فرا دهید تا حقیقت فاش گردد."
 )
 
 COLONEL_CASSETTE_TRANSCRIPT = (
@@ -153,8 +152,141 @@ COLONEL_CASSETTE_TRANSCRIPT = (
     "امشب... شبِ بیست و نهمِ اکتبره. مهمان‌ها توی سالن دارن می‌رقصن. همه‌چیز عادی به نظر می‌رسه، "
     "اما من دیدمشون... کنار استخر... همون‌جا که پسرم غرق شد. سه نفرشون... اون‌ها دیگه مهمان‌های من نیستن. "
     "توی تاریک‌خانه‌ی عکاسیِ عمارت زیر نور قرمز لامپ تاریک‌خانه کار می‌کردم که اون اتفاق افتاد... "
-    "روح من به نور قرمز تاریک‌خانه الفت داره و چشم‌هاش توی نور سرخ هیچ‌چیز رو نمی‌بینه... اما اگر نور سفید بندازید یا صدا کنید، امانتون نمیده!\n\n"
-    "اگر این نوار رو سال‌ها بعد پیدا کردید... فرار کنید. قبل از اینکه ساعت دوازده بشه و درهای عمارت قفل بشه... "
-    "جنازه‌ی من روی همون تختِ اتاقِ عمارت می‌مونه... تنها راه آرامش، کشیدن تیشرت پسرم روی صورتمه با گفتن سه کلمه‌ی رمز: "
+    "اگر این نوار رو سال‌ها بعد پیدا کردید... تنها راه کشف حقیقت، تطبیق برگه‌های اسناد و گزارش حساب‌هاست با گفتن سه کلمه رمز: "
     "خون... سایه... و... *(صدای کوبیده شدن ناگهانی در و قطع نوار)*»"
 )
+
+PROGRESSIVE_HINTS = {
+    1: {
+        1: "راهنمایی مرحله ۱: به گزارش پزشکی درباره وضعیت و جراحت سر آرش پیش از افتادن در آب، و همچنین ارقام ثبت‌شده در صفحه دفترچه حساب توجه کنید.",
+        2: "راهنمایی مرحله ۲: جراحت سر نشان می‌دهد آسیب پیش از غرق شدن وارد شده است؛ انتقال مالی غیرقانونی حساب ۸۴۱۰۲ در سال ۱۳۵۶ انگیزه سرقت و اختلاس را اثبات می‌کند.",
+        3: "راهنمایی مرحله ۳ (راهنمای مستقیم میزبان): کلمه رمز پاکت اول «خون» و پاکت دوم سال حادثه «۱۳۵۶» است. مدارک را برای اثبات ضربه سر و اختلاس مالی نادر وثوق ارائه دهید."
+    },
+    2: {
+        1: "راهنمایی مرحله ۱: به بازتاب و انعکاس روی شیشه پنجره در عکس چاپ‌شده و ساعت ثبت آن در لاگ عکاسی دقت نمایید.",
+        2: "راهنمایی مرحله ۲: عکس در ساعت ۲۲:۱۹ ثبت شده و سایه فرد را نشان می‌دهد، در حالی که متهم ادعا کرده بود قبل از ساعت ۲۲ باغ را ترک کرده است؛ این تناقض زمانی کلید پرونده است.",
+        3: "راهنمایی مرحله ۳ (راهنمای مستقیم میزبان): رمز پاکت اول «سایه» و رمز پاکت دوم تاریخ شب حادثه «۲۹۱۰» است. حضور نادر در ساعت ۲۲:۱۹ ادعای خروج او را باطل می‌کند."
+    },
+    3: {
+        1: "راهنمایی مرحله ۱: دلایل سکوت شاهدان و تهدید شدن آن‌ها، به همراه تعداد کل مظنونان فهرست بایگانی را تطبیق دهید.",
+        2: "راهنمایی مرحله ۲: سه شاهد (شیرین، کیوان و دکتر مهر) از ترس سکوت کردند، اما با تطبیق فهرست ۵ نفره بایگانی، تنها نادر وثوق است که هیچ عذری برای حضورش ندارد.",
+        3: "راهنمایی مرحله ۳ (راهنمای مستقیم میزبان): رمز پاکت اول «سکوت» و رمز پاکت دوم عدد «۵» است. شهادت شاهدان مستقیماً نقش نادر وثوق را منزوی می‌سازد."
+    }
+}
+
+def normalize_mystery_text(text: str) -> str:
+    """Normalizes Persian/Arabic digits, letters, and whitespace."""
+    if not text:
+        return ""
+    t = text.strip().lower()
+    p_digits = "۰۱۲۳۴۵۶۷۸۹"
+    a_digits = "٠١٢٣٤٥٦٧٨٩"
+    for i in range(10):
+        t = t.replace(p_digits[i], str(i))
+        t = t.replace(a_digits[i], str(i))
+    t = t.replace("ي", "ی").replace("ك", "ک").replace("ة", "ه").replace("ۀ", "ه")
+    t = t.replace("\u200c", " ").replace("...", "").replace("!", "").replace("؟", "").replace("?", "").replace(":", "")
+    return " ".join(t.split())
+
+def evaluate_structured_accusation(
+    team_number: int,
+    suspect_name: str,
+    motive_opportunity: str,
+    evidence_point_1: str,
+    evidence_point_2: str
+) -> dict:
+    """
+    Evaluates a team's structured accusation.
+    Requirements:
+    1. Suspect name must normalize to 'نادر وثوق' or 'Nader Vosough'.
+    2. Motive/opportunity and evidence points must match at least 2 distinct valid evidence points
+       from the specific team's dossier:
+       - Team 1: Pool blood/head injury (ضربه سر / استخر / خون), Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی).
+       - Team 2: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹), Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی).
+       - Team 3: Witness statements (شیرین / کیوان / دکتر مهر / شهادت), Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر).
+    Returns {"is_correct": bool, "matched_points": list, "feedback": str}.
+    """
+    norm_suspect = normalize_mystery_text(suspect_name)
+
+    # Suspect validation: must normalize to Nader Vosough and NOT any other suspect
+    other_suspects = [
+        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "دکتر فریدون مهر", "فریدون مهر",
+        "فریدون", "دکتر مهر", "سرهنگ بهرام فرهمند", "بهرام فرهمند", "سرهنگ", "آرش",
+        "shirin", "keyvan", "fereydoun", "bahram", "arash"
+    ]
+    is_other = any(o in norm_suspect for o in other_suspects)
+    nader_aliases = ["نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough"]
+    is_suspect_correct = (not is_other) and any(alias in norm_suspect for alias in nader_aliases)
+
+    norm_evidence = normalize_mystery_text(f"{motive_opportunity} {evidence_point_1} {evidence_point_2}")
+
+    matched_points = []
+
+    if team_number == 1:
+        # Point 1: Pool blood / head injury (ضربه سر / استخر / خون)
+        p1_kw = [
+            "ضربه سر", "استخر", "خون", "جراحت سر", "ضربه", "سر", "خونریزی",
+            "کالبدشکافی", "پیش از ورود به اب", "پیش از ورود به آب", "زخمی",
+            "blood", "head", "injury", "pool", "trauma"
+        ]
+        if any(kw in norm_evidence for kw in p1_kw):
+            matched_points.append("ضربه سر و آثار خون پیش از غرق شدن در استخر")
+
+        # Point 2: Embezzlement/ledger account #84102 / 1356 (اختلاس / حساب / دفتر مالی)
+        p2_kw = [
+            "اختلاس", "حساب", "دفتر مالی", "دفترچه", "84102", "1356",
+            "انتقال مالی", "سرقت مالی", "کسری", "مالی", "تراکنش", "دفتر حساب",
+            "ledger", "embezzlement", "account"
+        ]
+        if any(kw in norm_evidence for kw in p2_kw):
+            matched_points.append("انگیزه مالی و اختلاس در حساب شماره ۸۴۱۰۲ سال ۱۳۵۶")
+
+    elif team_number == 2:
+        # Point 1: Window reflection silhouette at 22:19 (انعکاس / سایه / ۲۲:۱۹)
+        p1_kw = [
+            "انعکاس", "سایه", "2219", "22:19", "پنجره", "شیشه", "عکس",
+            "تصویر", "قامت", "بازتاب", "silhouette", "reflection", "window", "shadow", "photo"
+        ]
+        if any(kw in norm_evidence for kw in p1_kw):
+            matched_points.append("انعکاس سایه در شیشه پنجره در عکس ساعت ۲۲:۱۹")
+
+        # Point 2: Departure timeline contradiction (خروج پس از ۲۲ / تناقض زمانی)
+        p2_kw = [
+            "خروج پس از 22", "خروج پس از ۲۲", "تناقض زمانی", "تناقض", "خروج",
+            "ترک باغ", "ساعت 22", "ادعا", "زمان خروج", "حضور پس از ساعت 22",
+            "timeline", "contradiction", "departure"
+        ]
+        if any(kw in norm_evidence for kw in p2_kw):
+            matched_points.append("تناقض زمانی و رد ادعای خروج قبل از ساعت ۲۲:۰۰")
+
+    elif team_number == 3:
+        # Point 1: Witness statements (شیرین / کیوان / دکتر مهر / شهادت)
+        p1_kw = [
+            "شیرین", "کیوان", "دکتر مهر", "فریدون مهر", "شهادت", "شاهد",
+            "شاهدان", "کتمان", "تهدید", "درگیری", "نزاع", "سکوت",
+            "witness", "testimony", "threat"
+        ]
+        if any(kw in norm_evidence for kw in p1_kw):
+            matched_points.append("شهادت شاهدان عینی صحنه و کتمان حقیقت تحت تهدید")
+
+        # Point 2: Archive index of 5 suspects isolating Nader (فهرست بایگانی / ۵ نفر)
+        p2_kw = [
+            "فهرست بایگانی", "5 نفر", "پنج نفر", "بایگانی", "فهرست", "5",
+            "پنج", "ارشیو", "آرشیو", "دفترچه", "تطبیق",
+            "archive", "five", "suspects", "index"
+        ]
+        if any(kw in norm_evidence for kw in p2_kw):
+            matched_points.append("بررسی فهرست بایگانی ۵ مظنون و انزوای نادر وثوق")
+
+    is_correct = bool(is_suspect_correct and len(matched_points) >= 2)
+
+    if is_correct:
+        feedback = "✅ اتهام کامل و مستند است. هویت نادر وثوق به عنوان عامل اصلی با حداقل دو مدرک معتبر از پرونده تایید می‌شود."
+    else:
+        feedback = "❌ اتهام واردشده فاقد مدارک کافی یا انطباق کامل با اسناد این پرونده است."
+
+    return {
+        "is_correct": is_correct,
+        "matched_points": matched_points,
+        "feedback": feedback
+    }

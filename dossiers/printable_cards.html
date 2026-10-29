@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>اسناد و دوسیه‌های چاپی پرونده باغ سرهنگ — سال ۱۳۵۶</title>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+    :root {
+      --bg-paper: #fbf7ee;
+      --bg-aged: #f4edd8;
+      --border-dark: #2c251e;
+      --ink-black: #1a1614;
+      --ink-red: #8b0000;
+      --ink-blue: #0f2c59;
+      --stamp-red: #b22222;
+      --stamp-blue: #1d3557;
+      --shadow-soft: rgba(0, 0, 0, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Vazirmatn', 'B Nazanin', Tahoma, Arial, sans-serif;
+      background-color: #4a453f;
+      color: var(--ink-black);
+      direction: rtl;
+      text-align: right;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    /* Print Screen Layout */
+    .print-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .sheet {
+      background: var(--bg-paper);
+      width: 100%;
+      min-height: 1200px;
+      padding: 35px 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      position: relative;
+      border: 1px solid #dcd4be;
+      overflow: hidden;
+    }
+
+    /* Print Media Rules */
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+      }
+      .print-container {
+        max-width: 100%;
+      }
+      .sheet {
+        margin: 0;
+        padding: 20mm 15mm;
+        box-shadow: none;
+        border: none;
+        page-break-after: always;
+        break-after: page;
+        min-height: 297mm;
+        width: 210mm;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    /* Header Banner */
+    .official-header {
+      border-bottom: 2px solid var(--border-dark);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-titles {
+      flex: 1;
+      text-align: center;
+    }
+
+    .header-titles h1 {
+      font-size: 19px;
+      font-weight: 900;
+      color: var(--ink-black);
+      margin-bottom: 4px;
+    }
+
+    .header-titles h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #555;
+    }
+
+    .header-meta {
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: left;
+      font-family: 'Courier New', monospace;
+      color: #333;
+    }
+
+    /* Stamp Styles */
+    .stamp-box {
+      border: 2px dashed var(--stamp-red);
+      color: var(--stamp-red);
+      padding: 6px 14px;
+      font-weight: bold;
+      font-size: 13px;
+      display: inline-block;
+      transform: rotate(-3deg);
+      border-radius: 4px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .stamp-circle {
+      width: 90px;
+      height: 90px;
+      border: 3px double var(--stamp-blue);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: var(--stamp-blue);
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+      transform: rotate(6deg);
+      opacity: 0.85;
+      padding: 5px;
+    }
+
+    .stamp-secret {
+      position: absolute;
+      top: 40px;
+      left: 40px;
+      border: 3px solid var(--stamp-red);
+      color: var(--stamp-red);
+      padding: 5px 20px;
+      font-size: 14px;
+      font-weight: 900;
+      transform: rotate(-8deg);
+      background: rgba(255, 255, 255, 0.4);
+      z-index: 10;
+    }
+
+    /* Cards & Containers */
+    .doc-card {
+      background: #fff;
+      border: 1px solid #c9be9f;
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      border-radius: 3px;
+      box-shadow: 0 2px 5px var(--shadow-soft);
+      position: relative;
+    }
+
+    .doc-card.aged {
+      background: var(--bg-aged);
+      border-color: #b8ab8b;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--ink-blue);
+    }
+
+    /* Tables */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin: 10px 0;
+    }
+
+    table.data-table th, table.data-table td {
+      border: 1px solid #666;
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    table.data-table th {
+      background: #e2d9c2;
+      font-weight: 800;
+    }
+
+    /* Riddle Callout Box */
+    .riddle-box {
+      background: #fdf5e6;
+      border: 2px solid #b38b4d;
+      border-right: 6px solid #8b0000;
+      padding: 12px 18px;
+      margin: 14px 0;
+      border-radius: 2px;
+    }
+
+    .riddle-box .riddle-title {
+      font-weight: 900;
+      color: #8b0000;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .riddle-box .riddle-text {
+      font-style: italic;
+      font-size: 14px;
+      color: #2b1d0c;
+      line-height: 1.7;
+    }
+
+    .riddle-box .riddle-command {
+      font-size: 11px;
+      color: #555;
+      margin-top: 6px;
+      direction: ltr;
+      text-align: right;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    /* Photo Facsimile Simulation */
+    .photo-frame {
+      background: #fff;
+      border: 1px solid #bbb;
+      padding: 10px;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.18);
+      display: inline-block;
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .photo-visual {
+      background: #2b2b2b;
+      color: #eaeaea;
+      padding: 25px 15px;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #111;
+      min-height: 150px;
+      position: relative;
+    }
+
+    .photo-caption {
+      font-size: 11px;
+      color: #444;
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    /* Torn Paper Effect */
+    .torn-receipt {
+      background: #fff8eb;
+      border: 1px dashed #aa8844;
+      border-bottom: 3px dashed #aa2222;
+      padding: 15px;
+      position: relative;
+      font-family: 'Courier New', Tahoma, sans-serif;
+      font-size: 12px;
+      margin: 12px 0;
+    }
+
+    .torn-receipt::after {
+      content: "[ لبه سند با خشونت از دفتر پاره شده است ]";
+      display: block;
+      color: #aa2222;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    /* Envelope Badge Grid */
+    .envelope-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .envelope-label {
+      border: 2px solid #444;
+      padding: 15px;
+      background: #fdfbf7;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .envelope-label .env-id {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--ink-red);
+      border-bottom: 2px solid var(--ink-red);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .instruction-bar {
+      background: #2b2520;
+      color: #fff;
+      padding: 8px 15px;
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 20px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="print-container">
+
+  <!-- ========================================== -->
+  <!-- PAGE 1: TEAM 1 - ENVELOPE 1-A (BLOOD)      -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-1">
+    <div class="stamp-secret">محرمانه — شهربانی</div>
+
+    <div class="official-header">
+      <div class="stamp-circle">
+        وزارت بهداری<br>پزشکی قانونی<br>شیراز
+      </div>
+      <div class="header-titles">
+        <h1>پرونده جنایی شماره ۵۶/۱۰/۲۹ — خان‌زنیان</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۱ (تیم خون) — پاکت ۱-الف</h2>
+      </div>
+      <div class="header-meta">
+        کلاسه: ۵۶/م/۴۴۱<br>
+        تاریخ: ۳۰ دی‌ماه ۱۳۵۶<br>
+        مدرک: ENV-1A
+      </div>
+    </div>
+
+    <!-- Doc 1-A-1: Medical Report -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>گزارش معاینه بالینی و آسیب‌شناسی قانونی (Medical Incident Report)</span>
+        <span class="stamp-box">مدرک رسمی</span>
+      </div>
+      <p style="font-size: 13px; margin-bottom: 8px;">
+        <strong>متوفی:</strong> آرش فرهمند (فرزند بهرام، ۱۰ ساله) | <strong>محل کشف جسد:</strong> حوض و استخر عمارت سرهنگ فرهمند
+      </p>
+      <div style="font-size: 12px; line-height: 1.8; text-align: justify; background: #faf8f2; padding: 10px; border-right: 3px solid #666;">
+        «پیرو حضور کشیک پزشکی قانونی در محل حادثه در ساعت ۲۳:۴۰ مورخه ۲۹ دی‌ماه ۱۳۵۶:<br>
+        ۱. در معاینه ناحیه پس‌سری و استخوان گیجگاهی متوفی، یک جراحت فرورفته طولی عمیق با له‌شدگی بافت نرم مشهود است.<br>
+        ۲. عروق ترومبوزه و لبه‌های ملتهب زخم گواه قطعی بر <strong>وقوع ضربه در زمان حیات (Antemortem Impact)</strong> پیش از افتادن متوفی در آب می‌باشد.<br>
+        ۳. حبابچه‌های ششی فاقد احتقان کف‌آلود ناشی از خفگی ارادی در آب بوده و حاکی از آن است که کودک در اثر ضربه بیهوش یا فوت شده، سپس در استخر رها گردیده است.<br>
+        ۴. آثار خونابه لخته‌شده بر روی لبه سنگی استخر با الگوی ریزش ثقلی دقیقاً با این ضربه مغزی انطباق دارد.»
+      </div>
+      <div style="text-align: left; font-size: 11px; margin-top: 6px; font-weight: bold; color: #555;">
+        امضا و مهر: دکتر فریدون مهر (پزشک معتمد حاضر در صحنه)
+      </div>
+    </div>
+
+    <!-- Doc 1-A-2: Evidence Sample Card with Riddle -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>کارت نمونه آزمایشگاهی و کشف سرنخ (Evidence Sample Card)</span>
+        <span style="font-family: monospace; font-size: 11px;">LAB-REF #104</span>
+      </div>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <div style="width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle, #8b0000 0%, #4a0000 70%, transparent 75%); flex-shrink: 0; border: 1px dashed #666; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: bold;">
+          لکه سرم
+        </div>
+        <div style="font-size: 12px;">
+          <strong>نمونه‌برداری از:</strong> لبه سنگی غربی استخر عمارت فرهمند<br>
+          <strong>نتیجه آزمون سرولوژی:</strong> مثبت قطعی هموگلوبین انسانی، گروه خونی A+ متوفی.
+        </div>
+      </div>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 چیستان بازرس جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «من جاری‌ام اما رود نیستم، سرخم اما آتش نیستم، گرمم تا زنده‌اید و سردم در مرگ. نام من چیست؟»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve خون</div>
+      </div>
+    </div>
+
+    <!-- Doc 1-A-3: Macro Cufflink Photo Facsimile -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>صورت‌جلسه بازرسی و عکس ماکرو دکمه سردست (Physical Evidence Facsimile)</span>
+        <span class="stamp-box" style="border-color: #0f2c59; color: #0f2c59;">مدرک صحنه</span>
+      </div>
+      <div style="display: flex; gap: 20px; align-items: center;">
+        <div class="photo-frame" style="width: 220px; flex-shrink: 0;">
+          <div class="photo-visual" style="background: #1f1f1f; border: 2px solid #333;">
+            <div style="width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #e0e0e0 0%, #999 50%, #555 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #111; font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.6); border: 2px solid #ccc;">
+              <span style="font-size: 9px; letter-spacing: 1px;">نقش عقاب</span>
+              <span style="font-size: 16px; font-family: 'Times New Roman', serif;">N. V.</span>
+            </div>
+          </div>
+          <div class="photo-caption">عکس بزرگ‌نمایی: دکمه سردست نقره با حروف N.V</div>
+        </div>
+        <div style="font-size: 12px; line-height: 1.7;">
+          <strong>محل کشف:</strong> شکاف بین دو سنگ مرمر در فاصله ۴۰ سانتی‌متری از لکه خون لبه استخر.<br>
+          <strong>گزارش مامور تجسس:</strong> دکمه از جنس نقره کارگاهی سفارشی تهران بوده و از سرآستین کنده شده است. حروف حکاکی شده لاتین <strong>N.V</strong> نشان‌دهنده نام صاحب آن است که در مهمانی حضور داشته است.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 2: TEAM 1 - ENVELOPE 1-B (1356)       -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-2">
+    <div class="stamp-secret">محرمانه — امور مالی</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #8b0000; color: #8b0000;">
+        املاک فرهمند<br>حسابرسی<br>سال ۱۳۵۶
+      </div>
+      <div class="header-titles">
+        <h1>دفتر کل و اسناد مالی عمارت بهرام فرهمند</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۱ (تیم خون) — پاکت ۱-ب</h2>
+      </div>
+      <div class="header-meta">
+        سند: LEDGER-56<br>
+        شعبه: شیراز مرکزی<br>
+        مدرک: ENV-1B
+      </div>
+    </div>
+
+    <!-- Doc 1-B-1: Ledger Excerpt -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>فاکسیمیله صفحه دفتر کل عایدات و مخارج (Printed Ledger Excerpt)</span>
+        <span class="stamp-box">حسابداری</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ردیف</th>
+            <th>تاریخ سند</th>
+            <th>شرح هزینه / انتقال</th>
+            <th>بستانکار (تومان)</th>
+            <th>بدهکار (تومان)</th>
+            <th>وضعیت تطبیق</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>۱۰۴</td>
+            <td>۵۶/۰۷/۱۵</td>
+            <td>عایدات فروش باغات گردو و بادام خان‌زنیان</td>
+            <td>۴۲۰,۰۰۰</td>
+            <td>—</td>
+            <td>تایید حسابرس</td>
+          </tr>
+          <tr>
+            <td>۱۰۵</td>
+            <td>۵۶/۰۸/۰۲</td>
+            <td>خرید لوله‌های آبرسانی و موتورپمپ دیزلی</td>
+            <td>—</td>
+            <td>۳۵,۰۰۰</td>
+            <td>با فاکتور رسمی</td>
+          </tr>
+          <tr style="background: #ffe6e6; font-weight: bold; color: #8b0000;">
+            <td>۱۰۶</td>
+            <td>۵۶/۰۸/۲۰</td>
+            <td>انتقال غیرمجاز به حساب ۸۴۱۰۲ (فاقد امضا)</td>
+            <td>—</td>
+            <td>۲۵۰,۰۰۰</td>
+            <td>کسری فاحش / مشکوک</td>
+          </tr>
+          <tr>
+            <td>۱۰۷</td>
+            <td>۵۶/۰۹/۱۰</td>
+            <td>مخارج پذیرایی آخرین مهمانی پاییزه عمارت</td>
+            <td>—</td>
+            <td>۴۸,۰۰۰</td>
+            <td>تایید سرهنگ</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 پرسش حسابرسی جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «سالی که آخرین مهمانی عمارت نصفه‌کاره ماند و پسر سرهنگ در استخر غرق شد؟ (عدد ۴ رقمی سال شمسی)»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve 1356</div>
+      </div>
+    </div>
+
+    <!-- Doc 1-B-2: Torn Bank Voucher -->
+    <div class="torn-receipt">
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #aaa; padding-bottom: 4px; margin-bottom: 6px;">
+        <strong>بانک صادرات ایران — شعبه مرکزی شیراز (کد ۲۴)</strong>
+        <span>برگه ته‌چک حواله انتقالی</span>
+      </div>
+      <div style="line-height: 1.8;">
+        تاریخ: ۲۰ آبان‌ماه ۱۳۵۶ | شماره سریال حواله: ت/۴۸۱۹۲۲<br>
+        مبلغ حواله: ۲,۵۰۰,۰۰۰ ریال (معادل ۲۵۰,۰۰۰ تومان وجه نقد رایج)<br>
+        به حواله‌کرد: شماره حساب بانکی ۸۴۱۰۲ شعبه مرکزی شیراز<br>
+        امضای صادرکننده: [فاقد امضای سرهنگ بهرام فرهمند — سفید]<br>
+        <span style="color: #8b0000; font-weight: bold; display: block; margin-top: 4px;">
+          دست‌نوشته قرمز بازرس: «این برگه سند اختلاس است. سارق سعی کرده با پاره کردن صفحه از کشف آن جلوگیری کند.»
+        </span>
+      </div>
+    </div>
+
+    <!-- Doc 1-B-3: Staff Directory Linking Account -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>فهرست پرسنلی و راهنمای حساب‌های کارکنان عمارت فرهمند (Staff Directory)</span>
+        <span class="stamp-box" style="border-color: #1d3557; color: #1d3557;">استعلام بانکی</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>نام و نام خانوادگی</th>
+            <th>سمت در عمارت</th>
+            <th>بانک عامل</th>
+            <th>شماره حساب ثبت‌شده</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>سرهنگ بهرام فرهمند</td>
+            <td>صاحب املاک و کارفرما</td>
+            <td>بانک ملی ایران</td>
+            <td>جاری ۱۰۰۱</td>
+          </tr>
+          <tr style="background: #fff0f0; font-weight: bold; color: #900;">
+            <td>نادر وثوق (Nader Vosough)</td>
+            <td>مدیر امور مالی و دفاتر اسناد عمارت</td>
+            <td>بانک صادرات مرکزی</td>
+            <td>حساب شخصی: ۸۴۱۰۲</td>
+          </tr>
+          <tr>
+            <td>کیوان رستگار</td>
+            <td>عکاس قراردادی مهمانی</td>
+            <td>تسویه دستی نقدی</td>
+            <td>فاقد حساب شرکتی</td>
+          </tr>
+          <tr>
+            <td>دکتر فریدون مهر</td>
+            <td>پزشک معتمد خانوادگی</td>
+            <td>بانک سپه شیراز</td>
+            <td>پس‌انداز ۱۲۴۰۹</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size: 11px; color: #333; margin-top: 5px;">
+        🔍 <strong>نتیجه استنتاج تیم ۱:</strong> حساب شماره ۸۴۱۰۲ متعلق به نادر وثوق است؛ انگیزه قتل آرش پنهان کردن اختلاس ۲۵۰ هزار تومانی و دکمه سردست N.V کشف‌شده متعلق به اوست!
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 3: TEAM 2 - ENVELOPE 2-A (SHADOW)     -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-3">
+    <div class="stamp-secret">محرمانه — عکاسی جنایی</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #2b2b2b; color: #2b2b2b;">
+        آتلیه عکاسی<br>تخت‌جمشید<br>شیراز
+      </div>
+      <div class="header-titles">
+        <h1>پرونده کلاسه ۵۶/۱۰/۲۹ — بایگانی نگاتیوها</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۲ (تیم سایه) — پاکت ۲-الف</h2>
+      </div>
+      <div class="header-meta">
+        نگاتیو: FRAME #14<br>
+        ساعت: ۲۲:۱۹ شب<br>
+        مدرک: ENV-2A
+      </div>
+    </div>
+
+    <!-- Doc 2-A-1: Vintage Archival Photo Facsimile -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>بازچاپ عکس سالن و بازتاب شیشه پنجره (Vintage Photo Facsimile)</span>
+        <span class="stamp-box">فریم ۱۴</span>
+      </div>
+      <div class="photo-frame" style="width: 100%; margin-bottom: 8px;">
+        <div class="photo-visual" style="height: 240px; background: #1a1a1a; position: relative;">
+          <!-- Simulated Room Background -->
+          <div style="position: absolute; left: 20px; top: 20px; font-size: 11px; color: #aaa; text-align: left;">
+            [ مهمانان در حال رقص در سالن روشن عمارت ]
+          </div>
+          <!-- Window Frame Simulation -->
+          <div style="width: 200px; height: 180px; border: 3px solid #666; background: rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: inset 0 0 20px #000;">
+            <div style="position: absolute; top: 6px; font-size: 10px; color: #ccc;">بازتاب شیشه پنجره غربی رو به حیاط</div>
+            <!-- Silhouette -->
+            <div style="width: 55px; height: 110px; background: #000; border-radius: 20px 20px 5px 5px; opacity: 0.92; position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div style="width: 28px; height: 28px; background: #000; border-radius: 50%; margin-top: -10px;"></div>
+              <div style="font-size: 8px; color: #ff4444; margin-top: 35px; font-weight: bold; text-align: center;">سایه فرد پالتوپوش</div>
+            </div>
+            <div style="position: absolute; bottom: 6px; font-size: 9px; color: #ff7777;">(ثبت در ۲۲:۱۹ — کنار استخر)</div>
+          </div>
+        </div>
+        <div class="photo-caption">عکس وینتیج عکاسی کیوان رستگار: ثبت سایه مظنون در پنجره غربی مشرف به استخر در اوج مهمانی</div>
+      </div>
+    </div>
+
+    <!-- Doc 2-A-2: Optical Geometry & Riddle -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>برگه تحلیل هندسی بازتاب نور و زاویه اپتیک (Visual Reference Card)</span>
+        <span class="stamp-box" style="border-color: #0f2c59; color: #0f2c59;">تحلیل کارشناسی</span>
+      </div>
+      <div style="font-size: 12px; line-height: 1.8; margin-bottom: 10px;">
+        <strong>گزارش کارشناس عدلیه:</strong> به دلیل تاریکی شدید محوطه استخر و روشن بودن لوستر سالن، شیشه پنجره نقش آینه نیمه‌شفاف را ایفا نموده است. زاویه ورود خط دید لنز دوربین (۳۴ درجه) ثابت می‌کند جسم تشکیل‌دهنده این شبح تاریک، دقیقاً در فاصله ۱٫۵ متری از لبه سنگی استخر و بیرون از عمارت ایستاده بوده است.
+      </div>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 چیستان بازرس جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «همپای تو می‌دوم اما خسته نمی‌شوم، در نور بزرگ می‌شوم و در تاریکی مطلق غیب می‌شوم. نام من چیست؟»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve سایه</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 4: TEAM 2 - ENVELOPE 2-B (2910)       -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-4">
+    <div class="stamp-secret">محرمانه — بازجویی و تردد</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #b22222; color: #b22222;">
+        شهربانی فارس<br>دایره جنایی<br>شیراز
+      </div>
+      <div class="header-titles">
+        <h1>تحلیل تردد و تناقض زمانی مدعوین پرونده ۵۶</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۲ (تیم سایه) — پاکت ۲-ب</h2>
+      </div>
+      <div class="header-meta">
+        کد: TIME-LOG-29<br>
+        فریم: ۱۴ ایلفورد<br>
+        مدرک: ENV-2B
+      </div>
+    </div>
+
+    <!-- Doc 2-B-1: Darkroom Camera Log -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>دفترچه گزارش فریم‌های عکاس مهمانی (Darkroom Exposure Log)</span>
+        <span class="stamp-box">دفتر کار کیوان رستگار</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>شماره فریم</th>
+            <th>فاصله کانونی لنز</th>
+            <th>سرعت شاتر / دیافراگم</th>
+            <th>زمان دقیق ثبت</th>
+            <th>موضوع و کادر تصویر</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>۱۱</td>
+            <td>۵۰ میلی‌متر</td>
+            <td>۱/۶۰ ثانیه — f/2.8</td>
+            <td>۲۲:۰۵</td>
+            <td>مهمانان کنار شومینه سالن اصلی</td>
+          </tr>
+          <tr>
+            <td>۱۲</td>
+            <td>۵۰ میلی‌متر</td>
+            <td>۱/۳۰ ثانیه — f/2.0</td>
+            <td>۲۲:۱۱</td>
+            <td>رقص دونفره سرهنگ فرهمند و همسرش</td>
+          </tr>
+          <tr style="background: #ffebe6; font-weight: bold; color: #900;">
+            <td>۱۴</td>
+            <td>۳۵ میلی‌متر واید</td>
+            <td>۱/۳۰ ثانیه — f/2.0</td>
+            <td>۲۲:۱۹</td>
+            <td>نمای پنجره غربی (ثبت سایه مظنون در شیشه)</td>
+          </tr>
+          <tr>
+            <td>۱۵</td>
+            <td>۵۰ میلی‌متر</td>
+            <td>۱/۶۰ ثانیه — f/4.0</td>
+            <td>۲۲:۳۵</td>
+            <td>همهمه پس از انتشار خبر غرق شدن آرش</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 پرسش تاریخی جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «تاریخ شب واقعه و قرار شوم مهمانی سرهنگ (روز ۲۹ و ماه ۱۰ — بدون فاصله و ۴ رقمی)؟»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve 2910</div>
+      </div>
+    </div>
+
+    <!-- Doc 2-B-2: Guest Timeline & False Alibi Contradiction -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>جدول تقاطع زمانی تردد و دروغ‌سنجی ادعای خروج (Timeline Contradiction)</span>
+        <span class="stamp-box" style="border-color: #8b0000; color: #8b0000;">ابطال آلیبای</span>
+      </div>
+      <div style="font-size: 12px; line-height: 1.8;">
+        <div style="background: #fff; padding: 8px; border: 1px solid #ccc; margin-bottom: 8px;">
+          <strong>ادعای کتبی نادر وثوق در بازجویی اولیه:</strong><br>
+          <em>«من به دلیل میگرن شدید و سرمای هوا، رأس ساعت ۲۱:۴۵ (قبل از ساعت ۲۲:۰۰) مهمانی را با شورلت خود ترک کردم و به شیراز برگشتم. در زمان حادثه اصلاً در باغ نبودم.»</em>
+        </div>
+        <div style="background: #ffe8e8; padding: 8px; border: 1px solid #d99; color: #700; font-weight: bold;">
+          ⛔ تناقض آشکار و ابطال قطعی ادعا:<br>
+          ثبت فریم شماره ۱۴ عکاسی در ساعت <strong>۲۲:۱۹</strong> حضور فیزیکی او را در کنار استخر ۲۴ دقیقه پس از ادعای دروغین خروج اثبات می‌نماید!
+        </div>
+      </div>
+    </div>
+
+    <!-- Doc 2-B-3: Anthropometric Matching Record -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>برگه تطبیق ویژگی‌های آنتروپومتریک و قامت سایه (Corroborating ID Sheet)</span>
+        <span class="stamp-box">شناسایی جنایی</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>شاخص فیزیکی</th>
+            <th>مشخصات سایه در فریم ۱۴</th>
+            <th>مشخصات هویتی نادر وثوق</th>
+            <th>نتیجه تطبیق</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>قد و قامت</td>
+            <td>بلندقامت (حدود ۱۸۳ الی ۱۸۵ سانتی‌متر)</td>
+            <td>۱۸۴ سانتی‌متر در برگه پرسنلی</td>
+            <td>انطباق ۱۰۰٪</td>
+          </tr>
+          <tr>
+            <td>پوشش شب حادثه</td>
+            <td>پالتوی پشمی ماهوت سرمه‌ای تیره</td>
+            <td>پالتوی سرمه‌ای نادر وثوق در جشن</td>
+            <td>انطباق ۱۰۰٪</td>
+          </tr>
+          <tr>
+            <td>ساعت مچی</td>
+            <td>صفحه گرد طلا با بند چرمی دست راست</td>
+            <td>ساعت امگا طلای نادر وثوق</td>
+            <td>انطباق ۱۰۰٪</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 5: TEAM 3 - ENVELOPE 3-A (SILENCE)    -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-5">
+    <div class="stamp-secret">محرمانه — شهادت شاهدان</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #1d3557; color: #1d3557;">
+        سرکلانتری<br>ناحیه شیراز<br>۱۳۵۶
+      </div>
+      <div class="header-titles">
+        <h1>صورت‌جلسات استنطاق و بازجویی شاهدان صحنه</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۳ (تیم سکوت) — پاکت ۳-الف</h2>
+      </div>
+      <div class="header-meta">
+        پرونده: WIT-3A<br>
+        تعداد شاهد: ۳ نفر<br>
+        مدرک: ENV-3A
+      </div>
+    </div>
+
+    <!-- Doc 3-A-1: Three Witness Depositions -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>صورت‌مجلس شهادت ۳ شاهد حاضر در باغ (Three Witness Statements)</span>
+        <span class="stamp-box">شهادت عینی</span>
+      </div>
+      
+      <div style="font-size: 11px; line-height: 1.7; margin-bottom: 10px; background: #fff8eb; padding: 8px; border-right: 3px solid #b38b4d;">
+        <strong>۱. اظهارات بانو شیرین نوری (مهمان و شاهد مستقیم صحنه):</strong><br>
+        «ساعت ۲۲:۱۵ در نزدیکی استخر بودم. مردی بلندقد با کت تیره و موهای جوگندمی با آرش ده‌ساله گلاویز شده بود و آرش فریاد می‌زد: "برگه را پس بده!". مرد با شدت سر آرش را به لبه سنگ استخر کوبید. کودک در آب افتاد و تکه‌ای کاغذ زیر پای مرد ماند. وقتی خواستم فریاد بزنم، مرد مچ دستم را پیچاند و نجوا کرد: <em>"اگر کلمه‌ای حرف بزنی، زنده از این باغ بیرون نمی‌روی!"</em>. من از ترس جانم تا سال‌ها سکوت کردم.»
+      </div>
+
+      <div style="font-size: 11px; line-height: 1.7; margin-bottom: 10px; background: #f0f4f8; padding: 8px; border-right: 3px solid #1d3557;">
+        <strong>۲. اظهارات کیوان رستگار (عکاس مهمانی):</strong><br>
+        «ساعت ۲۲:۱۹ از پنجره عکس گرفتم و صدای شلپ آب را شنیدم. وقتی نگاتیو را ظاهر کردم سایه نادر وثوق را در کنار استخر دیدم. اما از ترس متهم شدن به عنوان تنها فرد حاضر در حیاط، نگاتیو را پنهان کردم و دم نزدم.»
+      </div>
+
+      <div style="font-size: 11px; line-height: 1.7; background: #fdf2f2; padding: 8px; border-right: 3px solid #8b0000;">
+        <strong>۳. اظهارات دکتر فریدون مهر (پزشک مدعو):</strong><br>
+        «من شکستگی استخوان گیجگاهی و خون تازه روی سنگ را دیدم. مرگ قطعاً قبل از ورود به آب رخ داده بود؛ اما به دلیل فضای رعب‌آور و ترس از مواجهه با بازجویی‌های شهربانی، علت را غرق‌شدگی عادی ثبت کردم و لب از لب باز نکردم.»
+      </div>
+    </div>
+
+    <!-- Doc 3-A-2: Observation vs Concealment Card & Riddle -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>تحلیل شهادت: تفکیک مشاهده مستقیم از کتمان ترس‌آگاهانه</span>
+        <span class="stamp-box" style="border-color: #2b2520; color: #2b2520;">ممیزی حقوقی</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>نام شاهد</th>
+            <th>آنچه مشاهده کرد</th>
+            <th>علت کتمان و پنهان‌کاری</th>
+            <th>نقش در جنایت</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>شیرین نوری</td>
+            <td>نزاع فیزیکی، کوبیدن سر آرش و پاره شدن کاغذ</td>
+            <td>تهدید صریح به مرگ توسط نادر وثوق</td>
+            <td>شاهد وحشت‌زده (بی‌گناه)</td>
+          </tr>
+          <tr>
+            <td>کیوان رستگار</td>
+            <td>ثبت عکس سایه در ۲۲:۱۹ و شنیدن صدا</td>
+            <td>ترس از مظنون شدن عکاس و بازداشت</td>
+            <td>پنهان‌کننده نگاتیو (بی‌گناه)</td>
+          </tr>
+          <tr>
+            <td>دکتر فریدون مهر</td>
+            <td>ترومای مغزی پیش از غرق شدن و خون سنگ</td>
+            <td>وحشت از تبعات قانونی و شهربانی</td>
+            <td>کتمان‌کننده پزشکی (بی‌گناه)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 چیستان بازرس جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «اگر نامم را به زبان بیاوری، من دیگر وجود نخواهم داشت! من چیستم؟»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve سکوت</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 6: TEAM 3 - ENVELOPE 3-B (5)          -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-6">
+    <div class="stamp-secret">محرمانه — بایگانی ۵۲/۷</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #8b0000; color: #8b0000;">
+        ستاد ویژه<br>بایگانی سرهنگ<br>۵۶/۱۰/۲۹
+      </div>
+      <div class="header-titles">
+        <h1>فهرست مظنونین و ماتریس حذف استنتاجی</h1>
+        <h2>دوسیه شواهد کاغذی تیم ۳ (تیم سکوت) — پاکت ۳-ب</h2>
+      </div>
+      <div class="header-meta">
+        کلاسه: پرونده ۵۲/۷<br>
+        جامعه سوژه‌ها: ۵ نفر<br>
+        مدرک: ENV-3B
+      </div>
+    </div>
+
+    <!-- Doc 3-B-1: Archive Index of Five Individuals -->
+    <div class="doc-card">
+      <div class="card-title">
+        <span>فهرست رسمی اشخاص کلاسه پرونده ۵۲/۷ در دفترچه سرهنگ (Archive Index)</span>
+        <span class="stamp-box">کلاسه ۵۲/۷</span>
+      </div>
+      <div style="font-size: 13px; line-height: 1.8; background: #fffcf5; padding: 12px; border: 1px solid #d4c8ad;">
+        <strong>فهرست کل افراد مرتبط و تحت پیگیری سرهنگ بهرام فرهمند:</strong>
+        <ol style="margin-right: 25px; margin-top: 6px;">
+          <li>جناب سرهنگ بهرام فرهمند (پدر متوفی، شاکی پرونده و صاحب عمارت)</li>
+          <li><strong>نادر وثوق</strong> (مدیر امور مالی، املاک و دفاتر اسناد عمارت)</li>
+          <li>بانو شیرین نوری (طراح دکوراسیون و مهمان حاضر در باغ)</li>
+          <li>کیوان رستگار (عکاس قراردادی آتلیه تخت‌جمشید)</li>
+          <li>دکتر فریدون مهر (پزشک معتمد خانواده فرهمند)</li>
+        </ol>
+      </div>
+
+      <div class="riddle-box">
+        <div class="riddle-title">🧩 پرسش بایگانی جهت تایید پاکت در ربات تلگرام:</div>
+        <div class="riddle-text">
+          «تعداد کل افراد مظنون و مرتبط با پرونده‌ی سال ۵۶ که سرهنگ در دفترچه ثبت کرده است؟ (فقط عدد یا نام عدد)»
+        </div>
+        <div class="riddle-command">دستور ثبت رمز در ربات: /solve 5</div>
+      </div>
+    </div>
+
+    <!-- Doc 3-B-2: Suspect Elimination Matrix -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>ماتریس تطبیق اظهارات عینی و حذف گام‌به‌گام مظنونین (Elimination Matrix)</span>
+        <span class="stamp-box" style="border-color: #900; color: #900;">شناسایی قطعی</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>نام شخص</th>
+            <th>قد و جنسیت</th>
+            <th>موقعیت و انگیزه</th>
+            <th>نتیجه ارزیابی بازپرس</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>سرهنگ بهرام فرهمند</td>
+            <td>مرد — ۱۷۸ cm</td>
+            <td>طبقه دوم سالن — پدر داغدار و شاکی</td>
+            <td>❌ حذف قطعی (فاقد انگیزه سرقت)</td>
+          </tr>
+          <tr>
+            <td>شیرین نوری</td>
+            <td>زن — ۱۶۲ cm</td>
+            <td>شاهد عینی که خود مورد ضرب و شتم قرار گرفت</td>
+            <td>❌ حذف قطعی (عدم انطباق با قامت مردانه)</td>
+          </tr>
+          <tr>
+            <td>کیوان رستگار</td>
+            <td>مرد — ۱۷۲ cm</td>
+            <td>راهرو با دوربین سنگین مامیا در دست</td>
+            <td>❌ حذف قطعی (دوربین در دست و قد کوتاه)</td>
+          </tr>
+          <tr>
+            <td>دکتر فریدون مهر</td>
+            <td>مرد — ۱۶۵ cm</td>
+            <td>پزشک مسن ۶۲ ساله کنار شومینه سالن</td>
+            <td>❌ حذف قطعی (فاقد توان جسمی نزاع)</td>
+          </tr>
+          <tr style="background: #ffdede; font-weight: bold; color: #8b0000;">
+            <td>نادر وثوق (Nader)</td>
+            <td>مرد — ۱۸۴ cm</td>
+            <td>لبه استخر — انگیزه سرقت اسناد اختلاس ۲۵۰ هزار تومانی</td>
+            <td>✅ انطباق ۱۰۰٪ با قاتل آرش فرهمند!</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size: 11px; color: #222; margin-top: 6px;">
+        ⚖️ <strong>حکم استنتاجی تیم ۳:</strong> با تطبیق شهادت شیرین نوری (مرد بلندقامت با پالتو و خشونت کلامی) و حذف ۴ نفر دیگر، تنها مقصر پرونده نادر وثوق است.
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 7: DARKROOM FINAL PROP & CASSETTE     -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-7">
+    <div class="stamp-secret">سند پایانی — تاریکخانه</div>
+
+    <div class="official-header">
+      <div class="stamp-circle" style="border-color: #8b0000; color: #8b0000;">
+        تاریکخانه عکاسی<br>نور سرخ<br>فریم نهایی
+      </div>
+      <div class="header-titles">
+        <h1>سند شماره ۴۹: کادر استخراج‌شده در تاریکخانه</h1>
+        <h2>مدرک قطعی محکمه — پرونده قتل آرش فرهمند در پاییز ۱۳۵۶</h2>
+      </div>
+      <div class="header-meta">
+        سند: PROP-DARKROOM<br>
+        ساعت فینال: ۰۱:۱۰<br>
+        محرمانه عدلیه
+      </div>
+    </div>
+
+    <!-- The Zoomed Frame Facsimile -->
+    <div class="doc-card" style="border: 2px solid #8b0000; background: #fffcf8;">
+      <div class="card-title" style="color: #8b0000;">
+        <span>تصویر بزرگ‌نمایی‌شده فریم ۱۴ (High-Resolution Zoomed Photo Facsimile)</span>
+        <span class="stamp-box">مدرک جرم</span>
+      </div>
+      <div style="display: flex; gap: 20px; align-items: center;">
+        <div class="photo-frame" style="width: 240px; flex-shrink: 0; border: 2px solid #8b0000;">
+          <div class="photo-visual" style="height: 180px; background: #111;">
+            <div style="font-size: 14px; font-weight: bold; color: #f5f5f5; text-align: center; border: 1px solid #777; padding: 15px; background: rgba(255,255,255,0.05);">
+              [ چهره نادر وثوق ]<br>
+              <span style="font-size: 10px; color: #ff6666;">قطرات آب استخر بر آستین پالتو</span><br>
+              <span style="font-size: 9px; color: #aaa;">کاغذ پاره‌شده در دست چپ</span>
+            </div>
+          </div>
+          <div class="photo-caption" style="color: #8b0000; font-weight: bold;">فریم ۱۴: اثبات قطعی هویت نادر وثوق در صحنه</div>
+        </div>
+        <div style="font-size: 13px; line-height: 1.8; color: #8b0000; font-weight: bold; font-family: 'Courier New', Tahoma, monospace; border: 1px dashed #8b0000; padding: 15px; background: #fff5f5;">
+          «دست‌نوشته سرهنگ بهرام فرهمند با خودکار سرخ در پاییز ۱۳۵۶:<br><br>
+          بالاخره در این تاریکخانه پیدایت کردم نادر...<br>
+          تو برای دزدی حساب‌های باغ آمدی و پسرم را قربانی طمع خود کردی.<br>
+          امشب این نگاتیو زیر نور سرخ ظاهر شد.<br>
+          دیگر هیچ راه فراری برایت نمانده است!»
+        </div>
+      </div>
+    </div>
+
+    <!-- Cassette Tape Transcript -->
+    <div class="doc-card aged">
+      <div class="card-title">
+        <span>متن نوار کاست شماره ۷ ناگرا (Nagra Tape Transcript)</span>
+        <span style="font-family: monospace; font-size: 11px;">TAPE-REEL #07</span>
+      </div>
+      <div style="font-size: 12px; line-height: 1.9; text-align: justify; font-style: italic; background: #fff; padding: 12px; border: 1px solid #ccc;">
+        «...صدا میاد؟ ضبط می‌کنه؟<br>
+        امشب... شبِ بیست و نهمِ اکتبره. مهمان‌ها توی سالن دارن می‌رقصن. همه‌چیز عادی به نظر می‌رسه، اما من اسناد رو دیدم... حساب‌ها نمی‌خوند. ۲۵۰ هزار تومان پول نقد از حساب املاک گم شده بود. آرش فهمیده بود... رفت به سمت استخر. من توی تاریک‌خانه‌ی عکاسیِ عمارت زیر نور قرمز لامپ تاریک‌خانه کار می‌کردم که اون صدای شلپ آب اومد... فریم چهارده رو ظاهر کردم... توی آب و تاریکی، نور لوستر روی صورتش افتاد... نادر! اون سایه، سایه‌ی نادر وثوق بود!<br>
+        اگر سال‌ها بعد این نوار و این عکس رو در تاریکخانه پیدا کردید... بدونید آرش غرق نشد، به قتل رسید. نادر برای پس گرفتن همین عکس برمی‌گرده... حقیقت اینجاست؛ روی همین میز، زیر همین نور سرخ...»
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- PAGE 8: HOST ENVELOPE LABELS & STICKERS    -->
+  <!-- ========================================== -->
+  <section class="sheet" id="page-8">
+    <div class="official-header">
+      <div class="header-titles">
+        <h1>برچسب‌های رسمی الصاق روی پاکت‌های فیزیکی رویداد</h1>
+        <h2>راهنمای برش و چسباندن روی پاکت‌های ۶ گانه باغ سرهنگ</h2>
+      </div>
+    </div>
+
+    <div class="instruction-bar">
+      ✂️ این صفحه را روی برچسب A4 یا مقوای معمولی پرینت بگیرید و هر کادر را روی پاکت مربوطه بچسبانید.
+    </div>
+
+    <div class="envelope-grid">
+      <!-- Label 1-A -->
+      <div class="envelope-label" style="border-right: 6px solid #8b0000;">
+        <div class="env-id">پاکت ۱-الف (ENV-1A)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۱ (تیم خون)</p>
+        <p><strong>عنوان مدرک:</strong> گزارش کالبدشکافی و دکمه سردست لبه استخر</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون غربی — لبه سنگی استخر خشکیده</p>
+      </div>
+
+      <!-- Label 1-B -->
+      <div class="envelope-label" style="border-right: 6px solid #8b0000;">
+        <div class="env-id">پاکت ۱-ب (ENV-1B)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۱ (تیم خون)</p>
+        <p><strong>عنوان مدرک:</strong> فاکسیمیله دفتر کل و ته‌چک پاره‌شده اختلاس</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون غربی — شکاف موتورپمپ آب</p>
+      </div>
+
+      <!-- Label 2-A -->
+      <div class="envelope-label" style="border-right: 6px solid #1d3557;">
+        <div class="env-id">پاکت ۲-الف (ENV-2A)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۲ (تیم سایه)</p>
+        <p><strong>عنوان مدرک:</strong> عکس وینتیج سالن و تحلیل بازتاب شیشه پنجره</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون مرکزی — شاخه درخت کهنسال گردو</p>
+      </div>
+
+      <!-- Label 2-B -->
+      <div class="envelope-label" style="border-right: 6px solid #1d3557;">
+        <div class="env-id">پاکت ۲-ب (ENV-2B)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۲ (تیم سایه)</p>
+        <p><strong>عنوان مدرک:</strong> لاگ زمانی ۲۲:۱۹ عکاس و ابطال ادعای خروج نادر</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون مرکزی — زیر نیمکت سنگی باغ</p>
+      </div>
+
+      <!-- Label 3-A -->
+      <div class="envelope-label" style="border-right: 6px solid #2b2520;">
+        <div class="env-id">پاکت ۳-الف (ENV-3A)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۳ (تیم سکوت)</p>
+        <p><strong>عنوان مدرک:</strong> اظهارات بازجویی ۳ شاهد و تفکیک کتمان ترس‌آگاهانه</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون شرقی — روی میز چوبی آلاچیق</p>
+      </div>
+
+      <!-- Label 3-B -->
+      <div class="envelope-label" style="border-right: 6px solid #2b2520;">
+        <div class="env-id">پاکت ۳-ب (ENV-3B)</div>
+        <p><strong>تیم اختصاصی:</strong> تیم ۳ (تیم سکوت)</p>
+        <p><strong>عنوان مدرک:</strong> کلاسه پرونده ۵۲/۷ و ماتریس گام‌به‌گام حذف ۵ مظنون</p>
+        <p style="font-size: 11px; color: #666; margin-top: 6px;">محل استقرار: زون شرقی — پشت ستون سنگی ایوان</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

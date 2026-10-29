@@ -1,4 +1,5 @@
 import os
+import asyncio
 import unittest
 from pathlib import Path
 import aiosqlite
@@ -9,7 +10,8 @@ import texts
 
 class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.test_db_file = Path("test_colonel_party.db")
+        import uuid
+        self.test_db_file = Path(f"test_colonel_party_{uuid.uuid4().hex[:8]}_{self._testMethodName}.db")
         self.orig_db_path = database.DB_PATH
         database.DB_PATH = self.test_db_file
 
@@ -28,11 +30,14 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         database.DB_PATH = self.orig_db_path
+        await asyncio.sleep(0.01)
         if self.test_db_file.exists():
-            try:
-                os.remove(self.test_db_file)
-            except Exception:
-                pass
+            for _ in range(5):
+                try:
+                    os.remove(self.test_db_file)
+                    break
+                except Exception:
+                    await asyncio.sleep(0.05)
 
     def test_normalize_persian_and_arabic_digits(self):
         """Tests normalization of Arabic/Persian letters, digits, and punctuation."""
@@ -459,5 +464,155 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c4, 4)
 
 
+    async def test_rescue_alerts_table_persistence(self):
+        """Verifies rescue_alerts table stores entries with timestamps and details."""
+        cnt = await database.record_rescue_alert(101, details="نیاز به راهنمایی در تاریکی")
+        self.assertGreaterEqual(cnt, 1)
+
+        async with aiosqlite.connect(self.test_db_file) as db:
+            cursor = await db.execute("SELECT telegram_id, details FROM rescue_alerts WHERE telegram_id = 101")
+            rows = await cursor.fetchall()
+            self.assertGreaterEqual(len(rows), 1)
+            self.assertEqual(rows[-1][0], 101)
+            self.assertIn("نیاز به راهنمایی", rows[-1][1])
+
+    def test_evaluate_structured_accusation_team_1(self):
+        """Verifies Team 1 evaluation: pool blood/head injury + embezzlement/account 84102."""
+        res_correct = game.evaluate_structured_accusation(
+            team_number=1,
+            suspect_name="نادر وثوق",
+            motive_opportunity="سرپوش گذاشتن بر اختلاس دفتر مالی در سال ۱۳۵۶ و حساب ۸۴۱۰۲",
+            evidence_point_1="جراحت سر و خون کنار استخر پیش از ورود به آب",
+            evidence_point_2="تطبیق شماره حساب دفترچه حسابداری"
+        )
+        self.assertTrue(res_correct["is_correct"])
+        self.assertEqual(len(res_correct["matched_points"]), 2)
+
+        res_single = game.evaluate_structured_accusation(
+            team_number=1,
+            suspect_name="نادر وثوق",
+            motive_opportunity="انگیزه نامشخص",
+            evidence_point_1="ضربه سر و استخر",
+            evidence_point_2="مدرک دیگری در دست نیست"
+        )
+        self.assertFalse(res_single["is_correct"])
+
+        res_wrong_suspect = game.evaluate_structured_accusation(
+            team_number=1,
+            suspect_name="شیرین نوری",
+            motive_opportunity="اختلاس دفتر مالی",
+            evidence_point_1="ضربه سر و خون استخر",
+            evidence_point_2="حساب ۸۴۱۰۲"
+        )
+        self.assertFalse(res_wrong_suspect["is_correct"])
+
+    def test_evaluate_structured_accusation_team_2(self):
+        """Verifies Team 2 evaluation: window reflection at 22:19 + timeline departure contradiction."""
+        res_correct = game.evaluate_structured_accusation(
+            team_number=2,
+            suspect_name="Nader Vosough",
+            motive_opportunity="انکار حضور در محل پس از ساعت ۲۲",
+            evidence_point_1="سایه و بازتاب در شیشه پنجره عکس ساعت ۲۲:۱۹",
+            evidence_point_2="تناقض زمانی و رد ادعای خروج قبل از ۲۲"
+        )
+        self.assertTrue(res_correct["is_correct"])
+        self.assertEqual(len(res_correct["matched_points"]), 2)
+
+    def test_evaluate_structured_accusation_team_3(self):
+        """Verifies Team 3 evaluation: witness statements + 5-person archive index check."""
+        res_correct = game.evaluate_structured_accusation(
+            team_number=3,
+            suspect_name="نادر",
+            motive_opportunity="تهدید شاهدان",
+            evidence_point_1="شهادت شیرین و کیوان و دکتر مهر درباره کتمان حادثه",
+            evidence_point_2="بررسی فهرست ۵ نفر در بایگانی پرونده و انزوای متهم"
+        )
+        self.assertTrue(res_correct["is_correct"])
+        self.assertEqual(len(res_correct["matched_points"]), 2)
+
+    async def test_record_structured_accusation_winner_and_revisions(self):
+        """
+        Verifies:
+        1. First valid correct accusation becomes winner (is_winner=1, is_first_winner=True).
+        2. Sets game_state key 'winning_team_id'.
+        3. Winner revision increments revision_count without altering original winning timestamp or winner status.
+        4. Subsequent correct accusation from competitor team is recorded neutral (is_winner=0, is_first_winner=False).
+        5. Incorrect accusation returns status recorded_neutral.
+        """
+        # 1. Team 1 submits first correct accusation
+        res_t1 = await database.record_structured_accusation(
+            team_id=1,
+            team_number=1,
+            telegram_id=101,
+            suspect_name="نادر وثوق",
+            motive_opportunity="اختلاس در دفتر مالی و حساب ۸۴۱۰۲",
+            evidence_point_1="ضربه سر و آثار خون در استخر",
+            evidence_point_2="حساب ۸۴۱۰۲",
+            is_correct=True
+        )
+        self.assertEqual(res_t1["status"], "winning_accusation")
+        self.assertTrue(res_t1["is_first_winner"])
+        self.assertEqual(res_t1["revision_count"], 1)
+
+        winning_team_id = await database.get_game_state("winning_team_id")
+        self.assertEqual(winning_team_id, "1")
+        winning_ts_initial = await database.get_game_state("winning_timestamp")
+        self.assertTrue(bool(winning_ts_initial))
+
+        # 2. Team 1 revises accusation
+        res_t1_rev = await database.record_structured_accusation(
+            team_id=1,
+            team_number=1,
+            telegram_id=101,
+            suspect_name="نادر وثوق (مدیر امور مالی)",
+            motive_opportunity="اختلاس دفتر مالی",
+            evidence_point_1="ضربه سر و خون استخر",
+            evidence_point_2="حساب ۸۴۱۰۲",
+            is_correct=True
+        )
+        self.assertEqual(res_t1_rev["revision_count"], 2)
+        self.assertFalse(res_t1_rev["is_first_winner"])
+        winning_ts_after_rev = await database.get_game_state("winning_timestamp")
+        self.assertEqual(winning_ts_initial, winning_ts_after_rev)
+
+        # 3. Competitor Team 2 submits correct accusation later -> cannot steal win
+        res_t2 = await database.record_structured_accusation(
+            team_id=2,
+            team_number=2,
+            telegram_id=102,
+            suspect_name="نادر وثوق",
+            motive_opportunity="تناقض زمانی",
+            evidence_point_1="سایه پنجره ۲۲:۱۹",
+            evidence_point_2="خروج پس از ۲۲",
+            is_correct=True
+        )
+        self.assertEqual(res_t2["status"], "recorded_neutral")
+        self.assertFalse(res_t2["is_first_winner"])
+
+        # 4. Team 3 submits incorrect accusation
+        res_t3 = await database.record_structured_accusation(
+            team_id=3,
+            team_number=3,
+            telegram_id=103,
+            suspect_name="شیرین نوری",
+            motive_opportunity="",
+            evidence_point_1="",
+            evidence_point_2="",
+            is_correct=False
+        )
+        self.assertEqual(res_t3["status"], "recorded_neutral")
+        self.assertFalse(res_t3["is_first_winner"])
+
+    def test_progressive_hints_structure(self):
+        """Verifies progressive hints exists for teams 1, 2, 3 with levels 1, 2, 3."""
+        for t in (1, 2, 3):
+            self.assertIn(t, game.PROGRESSIVE_HINTS)
+            for lvl in (1, 2, 3):
+                self.assertIn(lvl, game.PROGRESSIVE_HINTS[t])
+                self.assertIsInstance(game.PROGRESSIVE_HINTS[t][lvl], str)
+                self.assertGreater(len(game.PROGRESSIVE_HINTS[t][lvl]), 10)
+
+
 if __name__ == "__main__":
     unittest.main()
+

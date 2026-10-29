@@ -1,9 +1,32 @@
 import aiosqlite
+import asyncio
 import random
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from config import DB_PATH
 import guest_list
 import game
+
+class _LockProxy:
+    def __init__(self):
+        self._locks = {}
+
+    def _get_lock(self):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop not in self._locks:
+            self._locks[loop] = asyncio.Lock()
+        return self._locks[loop]
+
+    async def __aenter__(self):
+        return await self._get_lock().__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return await self._get_lock().__aexit__(exc_type, exc_val, exc_tb)
+
+_riddle_lock = _LockProxy()
 
 async def init_db() -> None:
     """Initializes the SQLite database schema with full game mechanics."""
@@ -35,6 +58,7 @@ async def init_db() -> None:
             );
         """)
 
+        await db.execute("PRAGMA busy_timeout = 5000")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS game_state (
                 key TEXT PRIMARY KEY,
@@ -42,7 +66,53 @@ async def init_db() -> None:
             );
         """)
 
-        # Migration helper
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS team_accusations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_id INTEGER NOT NULL,
+                team_number INTEGER,
+                telegram_id INTEGER NOT NULL,
+                suspect_name TEXT NOT NULL,
+                motive_opportunity TEXT,
+                evidence_point_1 TEXT,
+                evidence_point_2 TEXT,
+                is_correct INTEGER DEFAULT 0,
+                is_winner INTEGER DEFAULT 0,
+                submitted_at TEXT DEFAULT (datetime('now')),
+                revision_count INTEGER DEFAULT 1
+            );
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS rescue_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                details TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+        """)
+
+        # Migration helper for team_accusations
+        acc_cursor = await db.execute("PRAGMA table_info(team_accusations)")
+        acc_columns = [row[1] for row in await acc_cursor.fetchall()]
+        acc_new_cols = [
+            ("team_id", "INTEGER NOT NULL DEFAULT 0"),
+            ("team_number", "INTEGER"),
+            ("telegram_id", "INTEGER NOT NULL DEFAULT 0"),
+            ("suspect_name", "TEXT NOT NULL DEFAULT ''"),
+            ("motive_opportunity", "TEXT"),
+            ("evidence_point_1", "TEXT"),
+            ("evidence_point_2", "TEXT"),
+            ("is_correct", "INTEGER DEFAULT 0"),
+            ("is_winner", "INTEGER DEFAULT 0"),
+            ("submitted_at", "TEXT"),
+            ("revision_count", "INTEGER DEFAULT 1")
+        ]
+        for col_name, col_type in acc_new_cols:
+            if col_name not in acc_columns:
+                await db.execute(f"ALTER TABLE team_accusations ADD COLUMN {col_name} {col_type}")
+
+        # Migration helper for guests
         cursor = await db.execute("PRAGMA table_info(guests)")
         columns = [row[1] for row in await cursor.fetchall()]
 
@@ -254,35 +324,377 @@ async def set_mission_completed(telegram_id: int) -> bool:
     res = await grant_alibi_shield(telegram_id)
     return res.get("status") in ("granted", "already_has_shield")
 
-async def record_rescue_alert(telegram_id: int, guest_name: str) -> int:
+async def record_rescue_alert(telegram_id: int, details: str = "", extra_details: str = "") -> int:
     """
-    Logs and increments safety rescue alert count.
+    Logs and increments safety rescue alert count into rescue_alerts table.
     Never blocks or caps safety requests.
+    Returns current total count of rescue alerts.
     """
-    current = int(await get_game_state("rescue_alert_count", "0"))
-    new_count = current + 1
+    combined_details = details
+    if extra_details:
+        combined_details = f"{details} - {extra_details}" if details else extra_details
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA busy_timeout = 5000")
+        await db.execute(
+            "INSERT INTO rescue_alerts (telegram_id, details, created_at) VALUES (?, ?, datetime('now'))",
+            (telegram_id, combined_details)
+        )
+        await db.commit()
+        cursor = await db.execute("SELECT COUNT(*) FROM rescue_alerts")
+        row = await cursor.fetchone()
+        new_count = row[0] if row else 1
+
     await set_game_state("rescue_alert_count", str(new_count))
-    from datetime import datetime, timezone
     await set_game_state("last_rescue_alert_at", datetime.now(timezone.utc).isoformat())
-    await set_game_state("last_rescue_alert_by", f"{guest_name} ({telegram_id})")
+    await set_game_state("last_rescue_alert_by", f"{combined_details} ({telegram_id})")
+    if combined_details:
+        await set_game_state("last_rescue_details", combined_details)
     return new_count
 
-async def record_team_accusation(team_number: int, suspect: str, telegram_id: int) -> Dict[str, Any]:
+def evaluate_accusation(
+    team_number: int,
+    suspect: str,
+    motive: str = "",
+    evidence_point_1: str = "",
+    evidence_point_2: str = "",
+    raw_text: str = ""
+) -> Dict[str, Any]:
     """
-    Records an accusation for the team at the central deduction table.
-    Teams can revise their theory until the host closes deduction.
+    Validates a team's accusation against Nader Vosough and the team's independent dossier.
+    Requirements:
+    1. Suspect identity matches Nader Vosough (aliases: نادر وثوق, نادر, وثوق, Nader Vosough).
+    2. At least two distinct, valid supporting evidence points from the team's dossier:
+       - Team 1: Category A (pool blood / blunt head trauma before drowning / cufflink photo)
+                 AND Category B (accounting ledger embezzlement / account #84102).
+       - Team 2: Category A (22:19 window reflection silhouette)
+                 AND Category B (timeline contradicting Nader departure before 22:00).
+       - Team 3: Category A (witness statements: Shirin, Keyvan, Dr. Mehr concealing under threat)
+                 AND Category B (5-person archive index check eliminating others and pointing to Nader).
     """
-    cleaned = suspect.strip()
-    await set_game_state(f"team_{team_number}_accusation", cleaned)
-    await set_game_state(f"team_{team_number}_accusation_by", str(telegram_id))
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE guests SET accusation = ? WHERE team_number = ?", (cleaned, team_number))
-        await db.commit()
+    norm_suspect = _normalize_text(suspect)
+    norm_raw = _normalize_text(raw_text)
+    combined = f"{norm_suspect} {_normalize_text(motive)} {_normalize_text(evidence_point_1)} {_normalize_text(evidence_point_2)} {norm_raw}"
+
+    # Suspect validation: check if suspect or combined text identifies Nader Vosough
+    nader_aliases = ["نادر وثوق", "نادر", "وثوق", "nader vosough", "nader", "vosough"]
+    other_suspects = [
+        "شیرین نوری", "شیرین", "کیوان رستگار", "کیوان", "فریدون مهر", "فریدون",
+        "دکتر فریدون", "بهرام فرهمند", "سرهنگ فرهمند", "سرهنگ"
+    ]
+
+    is_other_suspect = any(o in norm_suspect for o in other_suspects)
+    is_suspect_correct = False
+    if not is_other_suspect and any(alias in norm_suspect for alias in nader_aliases):
+        is_suspect_correct = True
+    elif not is_other_suspect and any(alias in combined for alias in nader_aliases):
+        is_suspect_correct = True
+
+    # Dossier rubric per team
+    has_cat_a = False
+    has_cat_b = False
+
+    if team_number == 1:
+        cat_a_kw = [
+            "خون", "استخر", "لبه استخر", "جراحت", "ضربه", "سر", "گیجگاه", "کالبدشکافی",
+            "پزشکی", "قبل از ورود به اب", "قبل از ورود به آب", "غرق", "دکمه", "سردست",
+            "cufflink", "blood", "trauma", "head"
+        ]
+        cat_b_kw = [
+            "حساب", "84102", "۸۴۱۰۲", "اختلاس", "دفتر", "دفترچه", "مالی", "انتقال",
+            "ته چک", "ته‌چک", "چک", "سرقت", "پول", "ledger", "account", "embezzlement"
+        ]
+        has_cat_a = any(_normalize_text(kw) in combined for kw in cat_a_kw)
+        has_cat_b = any(_normalize_text(kw) in combined for kw in cat_b_kw)
+
+    elif team_number == 2:
+        cat_a_kw = [
+            "عکس", "تصویر", "پنجره", "شیشه", "بازتاب", "انعکاس", "سایه", "نگاتیو",
+            "قامت", "کت", "reflection", "window", "shadow", "photo", "silhouette"
+        ]
+        cat_b_kw = [
+            "22:19", "۲۲:۱۹", "2219", "۲۲۱۹", "22:00", "۲۲:۰۰", "ساعت ۲۲", "خروج",
+            "ترک باغ", "زمان", "لاگ", "الیبای", "آلیبای", "تناقض", "ادعا", "timeline", "departure"
+        ]
+        has_cat_a = any(_normalize_text(kw) in combined for kw in cat_a_kw)
+        has_cat_b = any(_normalize_text(kw) in combined for kw in cat_b_kw)
+
+    elif team_number == 3:
+        cat_a_kw = [
+            "شاهد", "شهادت", "شیرین", "کیوان", "فریدون", "دکتر", "تهدید", "درگیری",
+            "نزاع", "سکوت", "کتمان", "فرار", "ترس", "witness", "threat"
+        ]
+        cat_b_kw = [
+            "5", "۵", "پنج", "فهرست", "بایگانی", "مظنون", "ارشیو", "آرشیو", "دفترچه",
+            "۵ نفر", "5 نفر", "پنج نفر", "تطبیق", "archive", "five", "suspects"
+        ]
+        has_cat_a = any(_normalize_text(kw) in combined for kw in cat_a_kw)
+        has_cat_b = any(_normalize_text(kw) in combined for kw in cat_b_kw)
+
+    ep1_norm = _normalize_text(evidence_point_1)
+    ep2_norm = _normalize_text(evidence_point_2)
+    has_two_distinct_points = False
+    if ep1_norm and ep2_norm and ep1_norm != ep2_norm:
+        has_two_distinct_points = True
+    elif has_cat_a and has_cat_b:
+        has_two_distinct_points = True
+
+    is_correct = bool(is_suspect_correct and has_cat_a and has_cat_b)
+
+    return {
+        "is_suspect_correct": is_suspect_correct,
+        "has_cat_a": has_cat_a,
+        "has_cat_b": has_cat_b,
+        "has_two_distinct_points": has_two_distinct_points,
+        "is_correct": is_correct
+    }
+
+async def close_deductions() -> bool:
+    """Closes team deduction submissions before the finale."""
+    await set_game_state("deductions_closed", "1")
+    return True
+
+async def open_deductions() -> bool:
+    """Reopens team deduction submissions."""
+    await set_game_state("deductions_closed", "0")
+    return True
+
+async def is_deductions_closed() -> bool:
+    """Checks if deduction submissions are closed."""
+    val = await get_game_state("deductions_closed", "0")
+    return val == "1"
+
+async def record_team_accusation(
+    team_number: int,
+    suspect: str,
+    telegram_id: int,
+    motive_opportunity: str = "",
+    evidence_point_1: str = "",
+    evidence_point_2: str = "",
+    raw_submission: str = ""
+) -> Dict[str, Any]:
+    """
+    Records a team accusation in the competitive architecture.
+    Validates suspect identity against Nader Vosough and requires at least 2 distinct dossier points.
+    The first team whose complete, correct accusation is committed wins!
+    Revisions are supported without resetting the original winning timestamp.
+    """
+    if await is_deductions_closed():
+        return {
+            "status": "deductions_closed",
+            "team_number": team_number,
+            "message": "مهلت ثبت اتهام توسط میزبان به پایان رسیده است."
+        }
+
+    cleaned_suspect = suspect.strip()
+    raw_text = raw_submission or f"{suspect} {motive_opportunity} {evidence_point_1} {evidence_point_2}"
+
+    eval_res = evaluate_accusation(
+        team_number=team_number,
+        suspect=cleaned_suspect,
+        motive=motive_opportunity,
+        evidence_point_1=evidence_point_1,
+        evidence_point_2=evidence_point_2,
+        raw_text=raw_text
+    )
+    is_correct = 1 if eval_res["is_correct"] else 0
+
+    submitted_at = datetime.now(timezone.utc).isoformat()
+    just_won = False
+    is_winner = 0
+
+    async with _riddle_lock:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("PRAGMA busy_timeout = 5000")
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM team_accusations WHERE team_number = ? OR team_id = ?",
+                (team_number, team_number)
+            )
+            row = await cursor.fetchone()
+            rev_count = (row[0] if row else 0) + 1
+
+            cur_cursor = await db.execute(
+                "SELECT value FROM game_state WHERE key = 'game_winner_team'"
+            )
+            winner_row = await cur_cursor.fetchone()
+            current_winner = winner_row[0] if winner_row else ""
+
+            if is_correct:
+                if not current_winner:
+                    is_winner = 1
+                    just_won = True
+                    await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_winner_team', ?)", (str(team_number),))
+                    await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_winner_recorded_at', ?)", (submitted_at,))
+                    await db.execute("INSERT OR REPLACE INTO game_state (key, value) VALUES ('winning_timestamp', ?)", (submitted_at,))
+                elif current_winner == str(team_number):
+                    is_winner = 1
+                    just_won = False
+                else:
+                    is_winner = 0
+                    just_won = False
+
+            ins_cursor = await db.execute("""
+                INSERT INTO team_accusations (
+                    team_id, team_number, telegram_id, suspect_name, motive_opportunity,
+                    evidence_point_1, evidence_point_2, is_correct, is_winner,
+                    submitted_at, revision_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                team_number, team_number, telegram_id, cleaned_suspect, motive_opportunity,
+                evidence_point_1, evidence_point_2, is_correct, is_winner,
+                submitted_at, rev_count
+            ))
+            accusation_id = ins_cursor.lastrowid
+
+            if just_won:
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_winner_accusation_id', ?)",
+                    (str(accusation_id),)
+                )
+
+            # Update backward-compatibility tables
+            await db.execute("UPDATE guests SET accusation = ? WHERE team_number = ?", (cleaned_suspect, team_number))
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_accusation", cleaned_suspect)
+            )
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_accusation_by", str(telegram_id))
+            )
+            await db.commit()
+
     return {
         "status": "recorded",
+        "accusation_id": accusation_id,
         "team_number": team_number,
-        "suspect": cleaned
+        "suspect": cleaned_suspect,
+        "is_correct": bool(is_correct),
+        "is_winner": bool(is_winner),
+        "just_won": just_won,
+        "revision_count": rev_count,
+        "submitted_at": submitted_at
     }
+
+async def record_structured_accusation(
+    team_id: int,
+    team_number: int,
+    telegram_id: int,
+    suspect_name: str,
+    motive_opportunity: str,
+    evidence_point_1: str,
+    evidence_point_2: str,
+    is_correct: bool
+) -> Dict[str, Any]:
+    """
+    Records a structured team accusation.
+    - Atomic check for game winner:
+      If correct and no prior winning accusation exists across the entire game,
+      mark as winner (is_winner = 1), record game_state key 'winning_team_id',
+      and return {"status": "winning_accusation", "is_first_winner": True, "accusation_id": id}.
+    - Allow revisions: increment revision_count, record without altering original winning timestamp or winner status.
+    - If incorrect, record accusation and return {"status": "recorded_neutral", "is_first_winner": False}.
+    """
+    submitted_at = datetime.now(timezone.utc).isoformat()
+    cleaned_suspect = (suspect_name or "").strip()
+
+    async with _riddle_lock:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("PRAGMA busy_timeout = 5000")
+
+            # Check revision count for this team
+            cursor = await db.execute(
+                "SELECT COUNT(*), MAX(is_winner) FROM team_accusations WHERE team_number = ? OR team_id = ?",
+                (team_number, team_id)
+            )
+            row = await cursor.fetchone()
+            rev_count = (row[0] if row else 0) + 1
+            this_team_was_winner = bool(row and row[1] and row[1] == 1)
+
+            # Check if any winning accusation already exists across the entire game
+            win_cursor = await db.execute(
+                "SELECT id, team_number, team_id FROM team_accusations WHERE is_winner = 1 LIMIT 1"
+            )
+            prior_winner = await win_cursor.fetchone()
+
+            is_first_winner = False
+            is_winner = 0
+
+            if is_correct:
+                if not prior_winner:
+                    is_winner = 1
+                    is_first_winner = True
+                    await db.execute(
+                        "INSERT OR REPLACE INTO game_state (key, value) VALUES ('winning_team_id', ?)",
+                        (str(team_id),)
+                    )
+                    await db.execute(
+                        "INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_winner_team', ?)",
+                        (str(team_number),)
+                    )
+                    await db.execute(
+                        "INSERT OR REPLACE INTO game_state (key, value) VALUES ('winning_timestamp', ?)",
+                        (submitted_at,)
+                    )
+                elif this_team_was_winner or (prior_winner[1] == team_number or prior_winner[2] == team_id):
+                    # Revision by existing winner: preserve winner status
+                    is_winner = 1
+                    is_first_winner = False
+                else:
+                    # Another team already won
+                    is_winner = 0
+                    is_first_winner = False
+            else:
+                is_winner = 0
+                is_first_winner = False
+
+            ins_cursor = await db.execute("""
+                INSERT INTO team_accusations (
+                    team_id, team_number, telegram_id, suspect_name, motive_opportunity,
+                    evidence_point_1, evidence_point_2, is_correct, is_winner,
+                    submitted_at, revision_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                team_id, team_number, telegram_id, cleaned_suspect, motive_opportunity,
+                evidence_point_1, evidence_point_2, 1 if is_correct else 0, is_winner,
+                submitted_at, rev_count
+            ))
+            accusation_id = ins_cursor.lastrowid
+
+            if is_first_winner:
+                await db.execute(
+                    "INSERT OR REPLACE INTO game_state (key, value) VALUES ('game_winner_accusation_id', ?)",
+                    (str(accusation_id),)
+                )
+
+            # Update backward-compatibility tables
+            await db.execute("UPDATE guests SET accusation = ? WHERE team_number = ?", (cleaned_suspect, team_number))
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_accusation", cleaned_suspect)
+            )
+            await db.execute(
+                "INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)",
+                (f"team_{team_number}_accusation_by", str(telegram_id))
+            )
+            await db.commit()
+
+    if is_first_winner:
+        return {
+            "status": "winning_accusation",
+            "is_first_winner": True,
+            "accusation_id": accusation_id,
+            "team_number": team_number,
+            "revision_count": rev_count
+        }
+    else:
+        return {
+            "status": "recorded_neutral",
+            "is_first_winner": False,
+            "accusation_id": accusation_id,
+            "team_number": team_number,
+            "revision_count": rev_count
+        }
 
 async def get_team_accusation(team_number: int) -> Optional[str]:
     """Retrieves current recorded accusation for a team."""
@@ -297,6 +709,24 @@ async def get_all_accusations() -> Dict[int, str]:
         if acc:
             results[t_num] = acc
     return results
+
+async def get_winning_accusation() -> Optional[Dict[str, Any]]:
+    """Retrieves the official winning accusation and team details."""
+    winning_team_str = await get_game_state("game_winner_team", "")
+    if not winning_team_str:
+        return None
+    winning_team = int(winning_team_str)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM team_accusations WHERE is_winner = 1 ORDER BY id ASC LIMIT 1"
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                res = dict(row)
+                res["team_number"] = winning_team
+                return res
+    return {"team_number": winning_team}
 
 async def tag_possession(target_pin: str, hunter_name: str) -> Dict[str, Any]:
     """Attempts to possess a guest by PIN."""
@@ -731,102 +1161,123 @@ async def check_team_riddle(telegram_id: int, answer: str) -> Dict[str, Any]:
 
     answers = team_riddle_answers.get(team_num, {})
 
-    r1_solved = (await get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
-    r2_solved = (await get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
+    async with _riddle_lock:
+        r1_solved = (await get_game_state(f"team_{team_num}_riddle_1", "0")) == "1"
+        r2_solved = (await get_game_state(f"team_{team_num}_riddle_2", "0")) == "1"
 
-    if r1_solved and r2_solved:
-        return {
-            "status": "already_both_solved",
-            "team_number": team_num,
-            "response_text": game.CLIMAX_INSTRUCTIONS
-        }
-
-    # Check match with Riddle 1
-    match_r1 = any(_matches_candidate(answer, cand) for cand in answers.get(1, []))
-    # Check match with Riddle 2
-    match_r2 = any(_matches_candidate(answer, cand) for cand in answers.get(2, []))
-
-    if match_r1:
-        if r1_solved:
+        if r1_solved and r2_solved:
             return {
-                "status": "already_solved",
+                "status": "already_both_solved",
+                "team_number": team_num,
+                "response_text": "🔓 هر دو مدرک تیم شما قبلاً ثبت شده است. مدارک را برای تنظیم اتهام در /accuse آماده کنید."
+            }
+
+        # Check match with Riddle 1
+        match_r1 = any(_matches_candidate(answer, cand) for cand in answers.get(1, []))
+        # Check match with Riddle 2
+        match_r2 = any(_matches_candidate(answer, cand) for cand in answers.get(2, []))
+
+        if match_r1:
+            if r1_solved:
+                return {
+                    "status": "already_solved",
+                    "riddle_num": 1,
+                    "team_number": team_num,
+                    "response_text": "⚠️ این مدرک (معمای شماره ۱) قبلاً توسط تیم شما ثبت شده است!"
+                }
+            await set_game_state(f"team_{team_num}_riddle_1", "1")
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute("PRAGMA busy_timeout = 5000")
+                await db.execute("UPDATE guests SET riddle_1_solved = 1 WHERE team_number = ?", (team_num,))
+                await db.commit()
+
+            resp_text = game.RIDDLE_RESPONSES.get((team_num, 1), "✅ مدرک با موفقیت ثبت شد.")
+            all_collected = await is_all_evidence_collected()
+            if r2_solved:
+                already_both = (await get_game_state(f"team_{team_num}_both_solved", "0")) == "1"
+                just_completed = not already_both
+                if just_completed:
+                    await set_game_state(f"team_{team_num}_both_solved", "1")
+                    await set_game_state(f"team_{team_num}_completed_at", datetime.now(timezone.utc).isoformat())
+                return {
+                    "status": "both_solved",
+                    "team_number": team_num,
+                    "just_solved": 1,
+                    "riddle_num": 1,
+                    "response_text": resp_text,
+                    "both_solved": True,
+                    "just_completed": just_completed,
+                    "all_teams_solved": all_collected
+                }
+            return {
+                "status": "riddle_solved",
                 "riddle_num": 1,
                 "team_number": team_num,
-                "response_text": "⚠️ این مدرک (معمای شماره ۱) قبلاً توسط تیم شما ثبت شده است!"
-            }
-        await set_game_state(f"team_{team_num}_riddle_1", "1")
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("UPDATE guests SET riddle_1_solved = 1 WHERE team_number = ?", (team_num,))
-            await db.commit()
-
-        resp_text = game.RIDDLE_RESPONSES.get((team_num, 1), "✅ مدرک با موفقیت ثبت شد.")
-        all_collected = await is_all_evidence_collected()
-        if r2_solved:
-            return {
-                "status": "both_solved",
-                "team_number": team_num,
-                "just_solved": 1,
-                "riddle_num": 1,
                 "response_text": resp_text,
+                "both_solved": False,
+                "just_completed": False,
                 "all_teams_solved": all_collected
             }
-        return {
-            "status": "riddle_solved",
-            "riddle_num": 1,
-            "team_number": team_num,
-            "response_text": resp_text,
-            "all_teams_solved": all_collected
-        }
 
-    if match_r2:
-        if r2_solved:
+        if match_r2:
+            if r2_solved:
+                return {
+                    "status": "already_solved",
+                    "riddle_num": 2,
+                    "team_number": team_num,
+                    "response_text": "⚠️ این مدرک (معمای شماره ۲) قبلاً توسط تیم شما ثبت شده است!"
+                }
+            await set_game_state(f"team_{team_num}_riddle_2", "1")
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute("PRAGMA busy_timeout = 5000")
+                await db.execute("UPDATE guests SET riddle_2_solved = 1 WHERE team_number = ?", (team_num,))
+                await db.commit()
+
+            resp_text = game.RIDDLE_RESPONSES.get((team_num, 2), "✅ مدرک با موفقیت ثبت شد.")
+            all_collected = await is_all_evidence_collected()
+            if r1_solved:
+                already_both = (await get_game_state(f"team_{team_num}_both_solved", "0")) == "1"
+                just_completed = not already_both
+                if just_completed:
+                    await set_game_state(f"team_{team_num}_both_solved", "1")
+                    await set_game_state(f"team_{team_num}_completed_at", datetime.now(timezone.utc).isoformat())
+                return {
+                    "status": "both_solved",
+                    "team_number": team_num,
+                    "just_solved": 2,
+                    "riddle_num": 2,
+                    "response_text": resp_text,
+                    "both_solved": True,
+                    "just_completed": just_completed,
+                    "all_teams_solved": all_collected
+                }
             return {
-                "status": "already_solved",
+                "status": "riddle_solved",
                 "riddle_num": 2,
                 "team_number": team_num,
-                "response_text": "⚠️ این مدرک (معمای شماره ۲) قبلاً توسط تیم شما ثبت شده است!"
-            }
-        await set_game_state(f"team_{team_num}_riddle_2", "1")
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("UPDATE guests SET riddle_2_solved = 1 WHERE team_number = ?", (team_num,))
-            await db.commit()
-
-        resp_text = game.RIDDLE_RESPONSES.get((team_num, 2), "✅ مدرک با موفقیت ثبت شد.")
-        all_collected = await is_all_evidence_collected()
-        if r1_solved:
-            return {
-                "status": "both_solved",
-                "team_number": team_num,
-                "just_solved": 2,
-                "riddle_num": 2,
                 "response_text": resp_text,
+                "both_solved": False,
+                "just_completed": False,
                 "all_teams_solved": all_collected
             }
+
+        # Check if answer matches another team's riddle (cross-team submission)
+        for other_team, other_riddles in team_riddle_answers.items():
+            if other_team != team_num:
+                for r_idx, cands in other_riddles.items():
+                    if any(_matches_candidate(answer, cand) for cand in cands):
+                        return {
+                            "status": "other_team_riddle",
+                            "team_number": team_num,
+                            "other_team": other_team,
+                            "response_text": game.OTHER_TEAM_CODE_ALERT
+                        }
+
         return {
-            "status": "riddle_solved",
-            "riddle_num": 2,
+            "status": "wrong",
             "team_number": team_num,
-            "response_text": resp_text,
-            "all_teams_solved": all_collected
+            "response_text": game.WRONG_ANSWER_TEXT
         }
-
-    # Check if answer matches another team's riddle (cross-team submission)
-    for other_team, other_riddles in team_riddle_answers.items():
-        if other_team != team_num:
-            for r_idx, cands in other_riddles.items():
-                if any(_matches_candidate(answer, cand) for cand in cands):
-                    return {
-                        "status": "other_team_riddle",
-                        "team_number": team_num,
-                        "other_team": other_team,
-                        "response_text": game.OTHER_TEAM_CODE_ALERT
-                    }
-
-    return {
-        "status": "wrong",
-        "team_number": team_num,
-        "response_text": game.WRONG_ANSWER_TEXT
-    }
 
 async def assign_tester_team(telegram_id: int, team_number: int) -> Dict[str, Any]:
     """Assigns or switches a tester's team (1, 2, 3, or 4)."""

@@ -345,7 +345,7 @@ async def cmd_solve(message: Message, bot: Bot):
     if status == "already_both_solved":
         await message.answer(
             "🔓 **تیم شما قبلاً هر دو مدرک را ثبت کرده است!**\n\n"
-            + game.CLIMAX_INSTRUCTIONS
+            "مدارک را با دقت بررسی کنید و نظریه نهایی خود را با دستور `/accuse` ثبت نمایید."
         )
         return
 
@@ -359,12 +359,13 @@ async def cmd_solve(message: Message, bot: Bot):
     if status == "riddle_solved":
         r_num = res.get("riddle_num", 1)
         resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
+        # Deliver clue privately to sender
         await message.answer(resp_text)
 
-        # Notify other teammates
+        # Broadcast completion to teammates ONLY (excluding sender)
         teammates = await database.get_team_members(team_num)
         for tm in teammates:
-            if tm["telegram_id"] and tm["telegram_id"] != message.from_user.id:
+            if tm.get("telegram_id") and tm["telegram_id"] != message.from_user.id:
                 try:
                     await bot.send_message(
                         chat_id=tm["telegram_id"],
@@ -377,32 +378,33 @@ async def cmd_solve(message: Message, bot: Bot):
     if status == "both_solved":
         r_num = res.get("just_solved", 2)
         resp_text = res.get("response_text", "✅ مدرک با موفقیت ثبت شد.")
+        # Deliver clue privately to sender
         await message.answer(resp_text)
 
-        # Notify team members that all their clues are recorded
+        # Broadcast completion to teammates ONLY (excluding sender)
         teammates = await database.get_team_members(team_num)
         for tm in teammates:
-            if tm.get("telegram_id"):
+            if tm.get("telegram_id") and tm["telegram_id"] != message.from_user.id:
                 try:
                     await bot.send_message(
                         chat_id=tm["telegram_id"],
-                        text=(
-                            f"📁 **هر دو مدرک تیم شما با موفقیت ثبت شد!**\n\n"
-                            "شواهد را به میز مرکزی ببرید و منتظر بررسی مدارک سایر تیم‌ها باشید."
-                        )
+                        text=f"⚡️ یکی از هم‌تیمی‌های شما مدرک پاکت شماره {r_num} را ثبت کرد:\n\n{resp_text}"
                     )
                 except Exception:
                     pass
 
-        # Check if all 3 teams have completed all their evidences
-        if res.get("all_teams_solved"):
-            players = await database.get_players()
-            for p in players:
-                if p.get("telegram_id"):
+        # Exact-once completion notification when both envelopes are solved
+        if res.get("just_completed"):
+            completion_msg = (
+                "📁 **هر دو مدرک تیم شما با موفقیت ثبت شد!**\n\n"
+                "شواهد کاغذی را بررسی کنید و با دستور `/accuse` نظریه اتهام خود را ثبت نمایید."
+            )
+            for tm in teammates:
+                if tm.get("telegram_id"):
                     try:
                         await bot.send_message(
-                            chat_id=p["telegram_id"],
-                            text=texts.DARKROOM_FINAL_PROMPT
+                            chat_id=tm["telegram_id"],
+                            text=completion_msg
                         )
                     except Exception:
                         pass
@@ -473,21 +475,50 @@ async def cmd_team(message: Message):
     await message.answer(msg)
 
 @router.message(Command("rescue"))
-@router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ"]))
-async def cmd_rescue(message: Message):
-    """Informs that lights are not turned on from inside; players navigate strictly using their red lantern."""
-    await message.answer(
+@router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ", "🆘 کمک و امداد اضطراری", "🆘 امداد"]))
+async def cmd_rescue(message: Message, bot: Bot):
+    """
+    Safety emergency alert. Logs alert to DB, notifies admin immediately, reassuring user.
+    Unblocked under all conditions.
+    """
+    guest = await database.get_guest_by_telegram_id(message.from_user.id)
+    caller_name = guest.get("full_name") if guest else (message.from_user.full_name or str(message.from_user.id))
+    details = f"درخواست امداد از طرف {caller_name}"
+    alert_num = await database.record_rescue_alert(message.from_user.id, details=details)
+
+    if config.ADMIN_USER_ID != 0:
+        try:
+            await bot.send_message(
+                chat_id=config.ADMIN_USER_ID,
+                text=(
+                    f"🚨 **[هشدار اضطراری /rescue]**\n\n"
+                    f"👤 **مهمان:** {caller_name} (`{message.from_user.id}`)\n"
+                    f"🔢 **هشدار شماره:** {alert_num}\n"
+                    f"⏱ **زمان:** {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}"
+                )
+            )
+        except Exception:
+            pass
+
+    reassuring_msg = (
         "🔴 **[قانون تاریکی مطلق باغ]**\n\n"
         "طبق سناریوی عمارت، هیچ نوری از داخل سالن برای حیاط روشن نخواهد شد.\n"
-        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند."
+        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند.\n\n"
+        "🆘 **پیام امداد شما به میزبان و تیم پشتیبانی عمارت مخابره شد.**\n"
+        "آرامش خود را حفظ کنید. تیم اجرایی فوراً وضعیت شما را پیگیری می‌کند."
     )
+    await message.answer(reassuring_msg)
 
 @router.message(Command("accuse"))
-async def cmd_accuse(message: Message):
+async def cmd_accuse(message: Message, bot: Bot):
     """
-    Central deduction submission: allows a team to submit or revise its suspect conclusion.
-    Usage: /accuse <نام متهم> or just /accuse to see suspect options.
+    Central deduction submission: allows a team to submit or revise its structured suspect conclusion.
+    Accepts suspect name, motive, and evidence points (multi-line or delimited).
     """
+    if await database.is_deductions_closed():
+        await message.answer("⛔️ مهلت ثبت اتهام توسط میزبان به پایان رسیده است.")
+        return
+
     guest = await database.get_guest_by_telegram_id(message.from_user.id)
     if not guest:
         await message.answer("⚠️ ابتدا با ارسال /start در مهمانی ثبت‌نام کنید.")
@@ -502,29 +533,106 @@ async def cmd_accuse(message: Message):
         await message.answer("⚠️ شما هنوز در تیمی دسته‌بندی نشده‌اید.")
         return
 
-    suspect_arg = message.text.partition(" ")[2].strip()
-    if not suspect_arg:
+    raw_payload = message.text.partition(" ")[2].strip()
+    if not raw_payload:
         current_acc = await database.get_team_accusation(team_num)
-        curr_str = f"\n\n📌 **نظریه فعلی تیم شما:** «{current_acc}»" if current_acc else ""
-        await message.answer(
+        curr_str = f"\n\n📌 **نظریه فعلی ثبت‌شده برای تیم شما:** «{current_acc}»" if current_acc else ""
+        help_text = (
             "⚖️ **[میز مرکزی تجمیع مدارک — ثبت نظریه نهایی تیم]**\n\n"
-            "با ترکیب مدرک حساب‌ها، عکس ۲۲:۱۹، دکمه سردست و شهادت شاهدان، متهم اصلی قتل آرش را انتخاب نمایید:\n"
-            "یا بنویسید: `/accuse <نام متهم>`"
-            f"{curr_str}",
-            reply_markup=keyboards.accuse_suspects_kb()
+            "برای ثبت اتهام، نام متهم، انگیزه/فرصت و حداقل دو مدرک معتبر از اسناد تیم خود را ارسال کنید:\n\n"
+            "📌 **فرمت پیشنهادی (ارسال در خطوط جداگانه یا با خط فاصله):**\n"
+            "`/accuse نام متهم`\n"
+            "`انگیزه یا فرصت: ...`\n"
+            "`مدرک اول: ...`\n"
+            "`مدرک دوم: ...`\n"
+            f"{curr_str}"
         )
+        await message.answer(help_text, reply_markup=keyboards.accuse_suspects_kb())
         return
 
-    res = await database.record_team_accusation(team_num, suspect_arg, message.from_user.id)
-    await message.answer(
-        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
-        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
-        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+    # Parse payload
+    lines = [l.strip() for l in raw_payload.splitlines() if l.strip()]
+    suspect_name = ""
+    motive_opportunity = ""
+    evidence_point_1 = ""
+    evidence_point_2 = ""
+
+    if len(lines) >= 3:
+        suspect_name = lines[0]
+        motive_opportunity = lines[1]
+        evidence_point_1 = lines[2]
+        if len(lines) >= 4:
+            evidence_point_2 = lines[3]
+    elif len(lines) == 2:
+        suspect_name = lines[0]
+        evidence_point_1 = lines[1]
+        motive_opportunity = lines[1]
+    else:
+        line = lines[0]
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|") if p.strip()]
+        elif " - " in line:
+            parts = [p.strip() for p in line.split(" - ") if p.strip()]
+        elif "؛" in line:
+            parts = [p.strip() for p in line.split("؛") if p.strip()]
+        else:
+            parts = [line]
+
+        suspect_name = parts[0]
+        if len(parts) > 1:
+            motive_opportunity = parts[1]
+        if len(parts) > 2:
+            evidence_point_1 = parts[2]
+        if len(parts) > 3:
+            evidence_point_2 = parts[3]
+        if not evidence_point_1 and motive_opportunity:
+            evidence_point_1 = motive_opportunity
+
+    eval_res = game.evaluate_structured_accusation(
+        team_number=team_num,
+        suspect_name=suspect_name,
+        motive_opportunity=motive_opportunity,
+        evidence_point_1=evidence_point_1,
+        evidence_point_2=evidence_point_2
     )
 
+    rec_res = await database.record_structured_accusation(
+        team_id=team_num,
+        team_number=team_num,
+        telegram_id=message.from_user.id,
+        suspect_name=suspect_name,
+        motive_opportunity=motive_opportunity,
+        evidence_point_1=evidence_point_1,
+        evidence_point_2=evidence_point_2,
+        is_correct=eval_res["is_correct"]
+    )
+
+    if rec_res.get("is_first_winner") and config.ADMIN_USER_ID != 0:
+        admin_alert = texts.ADMIN_WINNER_ALERT.format(
+            team_number=team_num,
+            team_name=guest.get("team_name") or f"تیم {team_num}",
+            submitter_name=guest.get("full_name") or str(message.from_user.id),
+            telegram_id=message.from_user.id,
+            submitted_at=datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
+            suspect_name=suspect_name,
+            matched_points="، ".join(eval_res.get("matched_points", [])) or "مدارک منطبق پرونده"
+        )
+        try:
+            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=admin_alert)
+        except Exception:
+            pass
+
+    # Always respond neutrally without disclosing culprit
+    await message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
+
 @router.callback_query(F.data.startswith("accuse_"))
-async def cb_accuse(callback: CallbackQuery):
+async def cb_accuse(callback: CallbackQuery, bot: Bot):
     """Handles inline button accusation selection."""
+    if await database.is_deductions_closed():
+        await callback.answer("مهلت ثبت اتهام توسط میزبان به پایان رسیده است!", show_alert=True)
+        await callback.message.answer("⛔️ مهلت ثبت اتهام توسط میزبان به پایان رسیده است.")
+        return
+
     guest = await database.get_guest_by_telegram_id(callback.from_user.id)
     if not guest:
         await callback.answer("اطلاعات شما یافت نشد!", show_alert=True)
@@ -537,21 +645,49 @@ async def cb_accuse(callback: CallbackQuery):
 
     suspect_key = callback.data.replace("accuse_", "").strip()
     name_map = {
-        "نادر": "نادر وثوق (مدیر امور مالی)",
-        "شیرین": "شیرین نوری (شاهد فراری)",
-        "کیوان": "کیوان رستگار (عکاس مهمانی)",
-        "دکتر": "دکتر فریدون مهر (پزشک معالج)",
+        "نادر": "نادر وثوق",
+        "شیرین": "شیرین نوری",
+        "کیوان": "کیوان رستگار",
+        "دکتر": "دکتر فریدون مهر",
         "سرهنگ": "سرهنگ بهرام فرهمند"
     }
     suspect_name = name_map.get(suspect_key, suspect_key)
-    res = await database.record_team_accusation(team_num, suspect_name, callback.from_user.id)
 
-    await callback.answer("نظریه تیم ثبت شد!", show_alert=True)
-    await callback.message.answer(
-        f"📋 **نظریه نهایی تیم شما ثبت شد:** «{res['suspect']}»\n\n"
-        "این نظریه در پرونده ذخیره گردید و در فینال با اسناد تطبیق داده خواهد شد.\n"
-        "*(تیم شما تا زمان آغاز فینال می‌تواند با دستور `/accuse` نظر خود را تغییر دهد)*"
+    eval_res = game.evaluate_structured_accusation(
+        team_number=team_num,
+        suspect_name=suspect_name,
+        motive_opportunity="",
+        evidence_point_1="",
+        evidence_point_2=""
     )
+    rec_res = await database.record_structured_accusation(
+        team_id=team_num,
+        team_number=team_num,
+        telegram_id=callback.from_user.id,
+        suspect_name=suspect_name,
+        motive_opportunity="",
+        evidence_point_1="",
+        evidence_point_2="",
+        is_correct=eval_res["is_correct"]
+    )
+
+    if rec_res.get("is_first_winner") and config.ADMIN_USER_ID != 0:
+        admin_alert = texts.ADMIN_WINNER_ALERT.format(
+            team_number=team_num,
+            team_name=guest.get("team_name") or f"تیم {team_num}",
+            submitter_name=guest.get("full_name") or str(callback.from_user.id),
+            telegram_id=callback.from_user.id,
+            submitted_at=datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
+            suspect_name=suspect_name,
+            matched_points="، ".join(eval_res.get("matched_points", [])) or "مدارک منطبق پرونده"
+        )
+        try:
+            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=admin_alert)
+        except Exception:
+            pass
+
+    await callback.answer("نظریه ثبت شد!")
+    await callback.message.answer(texts.ACCUSATION_RECORDED_NEUTRAL)
 
 @router.message(Command("lantern"))
 @router.message(Command("red_lantern"))

@@ -11,3 +11,4 @@ sample.png
 node_modules/
 webapp/node_modules/
 cloudflared.exe
+.agents/
