@@ -101,6 +101,7 @@ class AdversarialCoverageTests(unittest.IsolatedAsyncioTestCase):
                 (299, 'unregistered_stranger', 'غریبه ناشناس', NULL, NULL, NULL)
             """)
             await db.commit()
+        await database.set_game_state("game_phase", "midnight_investigation")
 
     async def asyncTearDown(self):
         database.DB_PATH = self.orig_db_path
