@@ -634,7 +634,7 @@ async def cmd_accuse(message: Message, bot: Bot):
 
 
 @router.callback_query(F.data.startswith("accuse_"))
-async def cb_accuse(callback: CallbackQuery):
+async def cb_accuse(callback: CallbackQuery, bot: Bot | None = None):
     """Suspect buttons never submit an incomplete accusation."""
     if await database.is_deductions_closed():
         await callback.answer("مهلت ثبت اتهام بسته شده است.", show_alert=True)
