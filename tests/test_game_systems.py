@@ -243,6 +243,9 @@ class TestColonelGameSystems(unittest.IsolatedAsyncioTestCase):
         self.assertIn("بلوندهای بی‌گناه (VIP Party & Safe Zone)", texts.START_WELCOME_TEXT)
         self.assertIn("بازیکنان پرونده (The Investigators — فقط ۱۲ تا ۱۵ نفر)", texts.START_WELCOME_TEXT)
 
+        # 6 PM Meeting Location link
+        self.assertIn("https://maps.app.goo.gl/U6Dz6SzEUdoTnNty7", texts.ACT_1_TEXT)
+
         # Step 4: Pre-Midnight Crisis Broadcast (23:50)
         expected_crisis = (
             "⚠️ آخرین فایل صوتی سرهنگ از تاریکخانه استخراج شد.\n"

@@ -45,7 +45,6 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="solve", description="🧩 ثبت پاسخ معمای پاکت‌های حیاط"),
         BotCommand(command="accuse", description="⚖️ ثبت نظریه نهایی تیم در میز مرکزی"),
         BotCommand(command="use_alibi", description="🛡 مصرف سپر آلیبای و باطل کردن استیکر"),
-        BotCommand(command="rescue", description="🚨 امداد و درخواست روشنایی ایمنی حیاط"),
         BotCommand(command="graveyard", description="⚰️ جدول زنده بازماندگان عمارت"),
         BotCommand(command="rules", description="📜 قوانین و سناریوی ۴ پرده‌ای مهمانی"),
         BotCommand(command="help", description="❓ راهنمای کامل امکانات و پشتیبانی")

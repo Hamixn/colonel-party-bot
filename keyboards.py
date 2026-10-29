@@ -159,13 +159,10 @@ def main_menu_reply_kb(role: str = "role_player", is_hunter: int = 0) -> ReplyKe
         # Blonde
         kb_rows.append([
             KeyboardButton(text="🎴 کارت دعوت من"),
-            KeyboardButton(text="💡 روشن کردن نور حیات باغ")
+            KeyboardButton(text="🚗 کاروان")
         ])
         kb_rows.append([
-            KeyboardButton(text="🚗 کاروان"),
-            KeyboardButton(text="🎙 نوار کاست سرهنگ")
-        ])
-        kb_rows.append([
+            KeyboardButton(text="🎙 نوار کاست سرهنگ"),
             KeyboardButton(text="⚰️ وضعیت زنده عمارت")
         ])
 

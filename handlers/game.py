@@ -474,43 +474,13 @@ async def cmd_team(message: Message):
 
 @router.message(Command("rescue"))
 @router.message(F.text.in_(["💡 روشن کردن نور حیات باغ", "💡 روشن کردن نور حیاط باغ", "💡 روشن کردن نورافکن باغ"]))
-async def cmd_rescue(message: Message, bot: Bot):
-    """
-    Emergency safety lighting alert.
-    Never blocked by theatrical use limits.
-    Directly alerts event staff to assist with physical illumination.
-    """
-    guest = await database.get_guest_by_telegram_id(message.from_user.id)
-    guest_name = guest.get("full_name") if guest else message.from_user.full_name
-
-    alert_count = await database.record_rescue_alert(message.from_user.id, guest_name)
-
-    # Reassure user
+async def cmd_rescue(message: Message):
+    """Informs that lights are not turned on from inside; players navigate strictly using their red lantern."""
     await message.answer(
-        "💡 **[درخواست پشتیبانی روشنایی و ایمنی ثبت شد]**\n\n"
-        "پیام هشدار مستقیماً برای تیم پشتیبانی و میزبانان عمارت ارسال گردید تا روشنایی فیزیکی مسیرهای حیاط و لبه‌ی استخر را بررسی و تامین کنند.\n"
-        "لطفاً در آرامش و در محل امن با نور قرمز بمانید."
+        "🔴 **[قانون تاریکی مطلق باغ]**\n\n"
+        "طبق سناریوی عمارت، هیچ نوری از داخل سالن برای حیاط روشن نخواهد شد.\n"
+        "بازرسان باید در تاریکی مطلق و صرفاً با استفاده از **فانوس سرخ دیجیتال** خود (`/lantern`) مسیرها و پاکت‌های مدارک را پیدا کنند."
     )
-
-    # Alert event administrators and staff
-    staff_alert = (
-        f"🚨 **[درخواست فوری روشنایی و ایمنی در حیاط]**\n\n"
-        f"👤 **مهمان:** {guest_name} (@{message.from_user.username or 'بدون آیدی'})\n"
-        f"🔢 **شناسه تلگرام:** `{message.from_user.id}`\n"
-        f"📊 **تعداد کل درخواست‌ها:** {alert_count}\n\n"
-        f"📍 تیم تشریفات حیاط فوراً وضعیت روشنایی محیط، استخر و مسیرها را بررسی کنند."
-    )
-    if config.ADMIN_USER_ID != 0:
-        try:
-            await bot.send_message(chat_id=config.ADMIN_USER_ID, text=staff_alert)
-        except Exception:
-            pass
-    for tid in TESTER_IDS:
-        if tid != config.ADMIN_USER_ID:
-            try:
-                await bot.send_message(chat_id=tid, text=staff_alert)
-            except Exception:
-                pass
 
 @router.message(Command("accuse"))
 async def cmd_accuse(message: Message):
@@ -731,7 +701,8 @@ async def cmd_carpool(message: Message):
         f"🚘 **راننده خودرو:** {driver_contact}\n"
         f"👥 **همسفران شما در این خودرو:** {pass_str}\n"
         f"👤 **وضعیت شما:** {car_type}\n"
-        f"📍 **زمان و مکان تجمع:** پنجشنبه ۲۹ اکتبر — حرکت رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n\n"
+        f"📍 **زمان حرکت:** پنجشنبه ۲۹ اکتبر — رأس ساعت ۱۸:۰۰ به سمت خانزنیان\n"
+        f"🗺 **لوکیشن محل تجمع ساعت ۱۸:۰۰ (گوگل‌مپ):**\nhttps://maps.app.goo.gl/U6Dz6SzEUdoTnNty7\n\n"
         f"⛔️ **یادآوری مهم:** دروازه‌ی عمارت از ساعت ۱۸:۴۵ تا ۲۴:۰۰ قفل خواهد بود و خروج زودهنگام امکان‌پذیر نیست."
     )
 

@@ -106,8 +106,7 @@ async def cmd_stats(message: Message):
         f"• سپرهای آلیبای فعال (آماده مصرف): {alibi_avail} نفر\n"
         f"• سپرهای آلیبای مصرف‌شده: {alibi_used} نفر\n"
         f"• افراد نشان‌دار شده با استیکر: {stickered} نفر\n"
-        f"• نظریه‌های ثبت‌شده روی میز مرکزی: {acc_count} از ۳ تیم\n\n"
-        f"🚨 **درخواست‌های ایمنی و روشنایی (/rescue):** {rescue_alerts} بار"
+        f"• نظریه‌های ثبت‌شده روی میز مرکزی: {acc_count} از ۳ تیم"
     )
     await message.answer(stats_msg)
 
